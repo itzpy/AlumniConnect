@@ -2,56 +2,56 @@
 require_once(dirname(__FILE__) . '/../classes/connection_class.php');
 
 // Send connection request
-function send_connection_request_ctr($requester_id, $requester_type, $receiver_id, $receiver_type) {
+function send_connection_request_ctr($requester_id, $receiver_id, $message = null) {
     $connection = new Connection();
-    return $connection->send_request($requester_id, $requester_type, $receiver_id, $receiver_type);
+    return $connection->sendRequest($requester_id, $receiver_id, $message);
 }
 
 // Accept connection
-function accept_connection_ctr($connection_id) {
+function accept_connection_ctr($connection_id, $receiver_id) {
     $connection = new Connection();
-    return $connection->accept_request($connection_id);
+    return $connection->acceptRequest($connection_id, $receiver_id);
 }
 
 // Reject connection
-function reject_connection_ctr($connection_id) {
+function reject_connection_ctr($connection_id, $receiver_id) {
     $connection = new Connection();
-    return $connection->reject_request($connection_id);
+    return $connection->rejectRequest($connection_id, $receiver_id);
 }
 
 // Remove connection
-function remove_connection_ctr($connection_id) {
+function remove_connection_ctr($connection_id, $user_id) {
     $connection = new Connection();
-    return $connection->remove_connection($connection_id);
+    return $connection->removeConnection($connection_id, $user_id);
 }
 
 // Get connections
-function get_connections_ctr($user_id, $user_type) {
+function get_connections_ctr($user_id) {
     $connection = new Connection();
-    return $connection->get_connections($user_id, $user_type);
+    return $connection->getUserConnections($user_id);
 }
 
 // Get pending requests
-function get_pending_requests_ctr($user_id, $user_type) {
+function get_pending_requests_ctr($user_id) {
     $connection = new Connection();
-    return $connection->get_pending_requests($user_id, $user_type);
+    return $connection->getPendingRequests($user_id);
 }
 
 // Get sent requests
-function get_sent_requests_ctr($user_id, $user_type) {
+function get_sent_requests_ctr($user_id) {
     $connection = new Connection();
-    return $connection->get_sent_requests($user_id, $user_type);
+    return $connection->getSentRequests($user_id);
 }
 
 // Get connection status
-function get_connection_status_ctr($user1_id, $user1_type, $user2_id, $user2_type) {
+function get_connection_status_ctr($user1_id, $user2_id) {
     $connection = new Connection();
-    return $connection->get_connection_status($user1_id, $user1_type, $user2_id, $user2_type);
+    return $connection->getConnectionStatus($user1_id, $user2_id);
 }
 
 // Get connection count
-function get_connection_count_ctr($user_id, $user_type) {
+function get_connection_count_ctr($user_id) {
     $connection = new Connection();
-    return $connection->get_connection_count($user_id, $user_type);
+    return $connection->getConnectionCount($user_id);
 }
 ?>

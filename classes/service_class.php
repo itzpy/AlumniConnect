@@ -21,32 +21,36 @@ class Service extends db_connection {
      */
     public function addService($service_data) {
         // Extract service data
-        $service_name = mysqli_real_escape_string($this->db_conn(), $service_data['service_name']);
-        $service_type = mysqli_real_escape_string($this->db_conn(), $service_data['service_type']);
-        $description = mysqli_real_escape_string($this->db_conn(), $service_data['description']);
+        $conn = $this->db_conn();
+        $service_name = mysqli_real_escape_string($conn, $service_data['service_name']);
+        $service_type = mysqli_real_escape_string($conn, $service_data['service_type']);
+        $description = mysqli_real_escape_string($conn, $service_data['description']);
         $price = floatval($service_data['price']);
-        $duration = isset($service_data['duration']) ? intval($service_data['duration']) : NULL;
-        $provider_id = isset($service_data['provider_id']) ? intval($service_data['provider_id']) : NULL;
-        $category = isset($service_data['category']) ? mysqli_real_escape_string($this->db_conn(), $service_data['category']) : NULL;
-        $location = isset($service_data['location']) ? mysqli_real_escape_string($this->db_conn(), $service_data['location']) : NULL;
-        $stock_quantity = isset($service_data['stock_quantity']) ? intval($service_data['stock_quantity']) : NULL;
-        $image_url = isset($service_data['image_url']) ? mysqli_real_escape_string($this->db_conn(), $service_data['image_url']) : NULL;
+        $duration = isset($service_data['duration']) && $service_data['duration'] !== null ? intval($service_data['duration']) : NULL;
+        $provider_id = isset($service_data['provider_id']) && $service_data['provider_id'] !== null ? intval($service_data['provider_id']) : NULL;
+        $category = isset($service_data['category']) && $service_data['category'] !== null ? mysqli_real_escape_string($conn, $service_data['category']) : NULL;
+        $location = isset($service_data['location']) && $service_data['location'] !== null ? mysqli_real_escape_string($conn, $service_data['location']) : NULL;
+        $stock_quantity = isset($service_data['stock_quantity']) && $service_data['stock_quantity'] !== null ? intval($service_data['stock_quantity']) : NULL;
+        $image_url = isset($service_data['image_url']) && $service_data['image_url'] !== null ? mysqli_real_escape_string($conn, $service_data['image_url']) : NULL;
         
-        // Prepare SQL query
+        // Prepare SQL query with proper NULL handling
+        $duration_val = ($duration !== NULL) ? $duration : "NULL";
+        $provider_val = ($provider_id !== NULL) ? $provider_id : "NULL";
+        $category_val = ($category !== NULL) ? "'$category'" : "NULL";
+        $location_val = ($location !== NULL) ? "'$location'" : "NULL";
+        $stock_val = ($stock_quantity !== NULL) ? $stock_quantity : "NULL";
+        $image_val = ($image_url !== NULL) ? "'$image_url'" : "NULL";
+        
         $sql = "INSERT INTO services (service_name, service_type, description, price, duration, 
                 provider_id, category, location, stock_quantity, image_url) 
-                VALUES ('$service_name', '$service_type', '$description', $price, ";
+                VALUES ('$service_name', '$service_type', '$description', $price, 
+                $duration_val, $provider_val, $category_val, $location_val, $stock_val, $image_val)";
         
-        $sql .= ($duration !== NULL) ? "$duration, " : "NULL, ";
-        $sql .= ($provider_id !== NULL) ? "$provider_id, " : "NULL, ";
-        $sql .= ($category !== NULL) ? "'$category', " : "NULL, ";
-        $sql .= ($location !== NULL) ? "'$location', " : "NULL, ";
-        $sql .= ($stock_quantity !== NULL) ? "$stock_quantity, " : "NULL, ";
-        $sql .= ($image_url !== NULL) ? "'$image_url')" : "NULL)";
+        // Execute query using direct mysqli_query for insert_id
+        $result = mysqli_query($conn, $sql);
         
-        // Execute query
-        if ($this->db_query($sql)) {
-            return mysqli_insert_id($this->db_conn());
+        if ($result) {
+            return mysqli_insert_id($conn);
         }
         return false;
     }

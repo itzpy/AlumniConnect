@@ -1,0 +1,50 @@
+# Environment and Configuration
+.env
+.env.local
+.env.production
+config/local.php
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Dependencies
+/vendor/
+/node_modules/
+
+# Logs
+*.log
+logs/
+error_log
+
+# Uploads (keep structure, ignore content)
+uploads/profiles/*
+uploads/services/*
+uploads/posts/*
+!uploads/profiles/.gitkeep
+!uploads/services/.gitkeep
+!uploads/posts/.gitkeep
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+
+# Database dumps (sensitive)
+*.sql
+!db/schema.sql
+
+# Session files
+sessions/
+
+# Backup files
+*.bak
+*.backup

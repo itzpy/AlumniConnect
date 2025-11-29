@@ -8,6 +8,10 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 $user_name = $_SESSION['name'] ?? 'User';
 $user_type = $_SESSION['user_type'] ?? 'student';
+
+require_once(dirname(__FILE__).'/../classes/cart_class.php');
+$cart = new Cart();
+$cart_count = $cart->getCartCount($user_id);
 ?>
 <!DOCTYPE html>
 <html lang="en">

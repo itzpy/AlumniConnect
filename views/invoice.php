@@ -56,7 +56,7 @@ $order_items = $order_obj->getOrderItems($order['order_id']);
                 <div>
                     <h1 class="text-3xl font-bold text-primary mb-2">INVOICE</h1>
                     <p class="text-gray-600">Order #<?php echo htmlspecialchars($order_number); ?></p>
-                    <p class="text-sm text-gray-500">Date: <?php echo date('M d, Y', strtotime($order['order_date'])); ?></p>
+                    <p class="text-sm text-gray-500">Date: <?php echo date('M d, Y', strtotime($order['date_created'] ?? 'now')); ?></p>
                 </div>
                 <div class="text-right">
                     <h2 class="text-2xl font-bold text-primary">Alumni Connect</h2>
@@ -88,8 +88,8 @@ $order_items = $order_obj->getOrderItems($order['order_id']);
                         <tr class="border-b border-gray-200">
                             <td class="py-3"><?php echo htmlspecialchars($item['service_name']); ?></td>
                             <td class="text-center py-3"><?php echo $item['quantity']; ?></td>
-                            <td class="text-right py-3">GHS <?php echo number_format($item['price'], 2); ?></td>
-                            <td class="text-right py-3">GHS <?php echo number_format($item['price'] * $item['quantity'], 2); ?></td>
+                            <td class="text-right py-3">GHS <?php echo number_format($item['unit_price'] ?? 0, 2); ?></td>
+                            <td class="text-right py-3">GHS <?php echo number_format($item['total_price'] ?? 0, 2); ?></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -100,19 +100,25 @@ $order_items = $order_obj->getOrderItems($order['order_id']);
                 <div class="w-64 space-y-2">
                     <div class="flex justify-between">
                         <span class="text-gray-600">Subtotal:</span>
-                        <span class="font-medium">GHS <?php echo number_format($order['subtotal'], 2); ?></span>
+                        <span class="font-medium">GHS <?php echo number_format($order['total_amount'] ?? 0, 2); ?></span>
                     </div>
+                    <?php if (($order['discount_amount'] ?? 0) > 0): ?>
+                    <div class="flex justify-between text-green-600">
+                        <span>Discount:</span>
+                        <span class="font-medium">-GHS <?php echo number_format($order['discount_amount'], 2); ?></span>
+                    </div>
+                    <?php endif; ?>
                     <div class="flex justify-between">
-                        <span class="text-gray-600">Tax (12.5%):</span>
-                        <span class="font-medium">GHS <?php echo number_format($order['tax_amount'], 2); ?></span>
+                        <span class="text-gray-600">Tax:</span>
+                        <span class="font-medium">GHS <?php echo number_format($order['tax_amount'] ?? 0, 2); ?></span>
                     </div>
                     <div class="flex justify-between text-xl font-bold border-t-2 border-gray-300 pt-2">
                         <span>Total:</span>
-                        <span>GHS <?php echo number_format($order['total_amount'], 2); ?></span>
+                        <span>GHS <?php echo number_format($order['final_amount'] ?? 0, 2); ?></span>
                     </div>
                     <div class="flex justify-between text-sm">
                         <span class="text-green-600">Payment Status:</span>
-                        <span class="font-bold text-green-600"><?php echo strtoupper($order['payment_status']); ?></span>
+                        <span class="font-bold text-green-600"><?php echo strtoupper($order['payment_status'] ?? 'PENDING'); ?></span>
                     </div>
                 </div>
             </div>

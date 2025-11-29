@@ -2,6 +2,7 @@
 /**
  * Paystack Payment Verification
  * Handles payment verification after user returns from Paystack gateway
+ * Supports both regular orders and subscription payments
  */
 
 session_start();
@@ -31,6 +32,9 @@ if (!$reference) {
     ]);
     exit();
 }
+
+// Check if this is a subscription payment (reference starts with SUB-)
+$is_subscription = strpos($reference, 'SUB-') === 0;
 
 // Optional: Verify reference matches session
 if (isset($_SESSION['paystack_ref']) && $_SESSION['paystack_ref'] !== $reference) {
@@ -86,9 +90,17 @@ try {
         exit();
     }
     
+    // Handle subscription payment
+    if ($is_subscription) {
+        handleSubscriptionPayment($reference, $amount_paid, $customer_email, $transaction_data);
+        exit();
+    }
+    
     // Get cart summary to validate amount
     require_once '../classes/cart_class.php';
+    require_once '../classes/coupon_class.php';
     $cart = new Cart();
+    $coupon_handler = new Coupon();
     $user_id = $_SESSION['user_id'];
     $cart_summary = $cart->getCartSummary($user_id);
     
@@ -96,9 +108,22 @@ try {
         throw new Exception("Cart is empty");
     }
     
+    // Calculate expected amount including any applied coupon
     $expected_amount = $cart_summary['total'];
+    $discount_amount = 0;
+    $applied_coupon = null;
     
-    error_log("Expected order total (server): $expected_amount GHS");
+    // Check for applied coupon
+    if (isset($_SESSION['applied_coupon'])) {
+        $applied_coupon = $_SESSION['applied_coupon'];
+        $discount_amount = floatval($applied_coupon['discount_amount']);
+        $expected_amount = $expected_amount - $discount_amount;
+        if ($expected_amount < 0) $expected_amount = 0;
+        
+        error_log("Coupon applied: {$applied_coupon['coupon_code']}, Discount: $discount_amount GHS");
+    }
+    
+    error_log("Expected order total (server): $expected_amount GHS (after discount)");
 
     // Verify amount matches (with 1 pesewa tolerance)
     if (abs($amount_paid - $expected_amount) > 0.01) {
@@ -127,7 +152,8 @@ try {
             'name' => $user_name,
             'email' => $customer_email,
             'phone' => $_SESSION['phone'] ?? '',
-            'notes' => 'Payment via Paystack'
+            'notes' => 'Payment via Paystack',
+            'discount' => $discount_amount
         ];
         
         // Create order (this handles its own transaction)
@@ -143,16 +169,35 @@ try {
         
         error_log("Order created - ID: $order_id, Number: $order_number");
         
-        // Update order payment status (separate transaction)
+        // Update order payment status and coupon info (separate transaction)
         $conn = $order_class->db_conn();
+        $coupon_code = $applied_coupon ? mysqli_real_escape_string($conn, $applied_coupon['coupon_code']) : '';
+        $coupon_id = $applied_coupon ? intval($applied_coupon['coupon_id']) : 'NULL';
+        
         $update_sql = "UPDATE orders SET 
                       payment_status = 'paid', 
                       payment_method = 'paystack',
-                      payment_reference = '$reference' 
+                      payment_reference = '$reference',
+                      coupon_code = " . ($coupon_code ? "'$coupon_code'" : "NULL") . ",
+                      coupon_id = $coupon_id
                       WHERE order_id = $order_id";
         
         if (!mysqli_query($conn, $update_sql)) {
             throw new Exception("Failed to update order payment status");
+        }
+        
+        // Record coupon usage if a coupon was applied
+        if ($applied_coupon) {
+            $coupon_handler->recordUsage(
+                $applied_coupon['coupon_id'],
+                $user_id,
+                $order_id,
+                $discount_amount
+            );
+            error_log("Coupon usage recorded - Coupon: {$applied_coupon['coupon_code']}, Order: $order_id");
+            
+            // Clear the applied coupon from session
+            unset($_SESSION['applied_coupon']);
         }
         
         // Record payment in payments table
@@ -219,5 +264,100 @@ try {
         'verified' => false,
         'message' => 'Payment processing error: ' . $e->getMessage()
     ]);
+}
+
+/**
+ * Handle subscription payment verification
+ */
+function handleSubscriptionPayment($reference, $amount_paid, $customer_email, $transaction_data) {
+    global $is_subscription;
+    
+    $user_id = $_SESSION['user_id'];
+    $user_name = $_SESSION['name'] ?? 'User';
+    
+    // Get subscription details from session OR extract from reference
+    // Reference format: SUB-{plan}-{user_id}-{timestamp}
+    $plan = $_SESSION['subscription_plan'] ?? null;
+    $expected_amount = floatval($_SESSION['subscription_amount'] ?? 0);
+    
+    // If session data is lost, extract plan from reference
+    if (!$plan) {
+        // Parse reference: SUB-professional-123-1234567890
+        $ref_parts = explode('-', $reference);
+        if (count($ref_parts) >= 3 && $ref_parts[0] === 'SUB') {
+            $plan = $ref_parts[1]; // 'professional' or 'premium'
+            error_log("Extracted plan from reference: $plan");
+            
+            // Set expected amount based on plan
+            $plan_prices = ['professional' => 49, 'premium' => 99];
+            $expected_amount = $plan_prices[$plan] ?? 0;
+        }
+    }
+    
+    if (!$plan || !in_array($plan, ['professional', 'premium'])) {
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Invalid subscription plan',
+            'verified' => false
+        ]);
+        return;
+    }
+    
+    // Verify amount matches
+    if (abs($amount_paid - $expected_amount) > 0.01) {
+        error_log("Subscription amount mismatch - Expected: $expected_amount GHS, Paid: $amount_paid GHS");
+        
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Payment amount does not match subscription price',
+            'verified' => false
+        ]);
+        return;
+    }
+    
+    try {
+        // Create subscription
+        require_once '../classes/subscription_class.php';
+        $subscription = new Subscription();
+        
+        $subscription_id = $subscription->createSubscription($user_id, $plan, $reference);
+        
+        if (!$subscription_id) {
+            throw new Exception("Failed to create subscription");
+        }
+        
+        error_log("Subscription created - ID: $subscription_id, Plan: $plan, User: $user_id");
+        
+        // Update session with new plan
+        $_SESSION['subscription_plan_type'] = $plan;
+        
+        // Clear subscription session data
+        unset($_SESSION['subscription_ref']);
+        unset($_SESSION['subscription_plan']);
+        unset($_SESSION['subscription_amount']);
+        
+        echo json_encode([
+            'status' => 'success',
+            'verified' => true,
+            'is_subscription' => true,
+            'message' => 'Subscription activated successfully!',
+            'subscription_id' => $subscription_id,
+            'plan' => ucfirst($plan),
+            'amount' => number_format($amount_paid, 2),
+            'currency' => 'GHS',
+            'customer_name' => $user_name,
+            'customer_email' => $customer_email,
+            'expires_at' => date('F j, Y', strtotime('+1 month'))
+        ]);
+        
+    } catch (Exception $e) {
+        error_log("Error creating subscription: " . $e->getMessage());
+        
+        echo json_encode([
+            'status' => 'error',
+            'verified' => false,
+            'message' => 'Subscription creation failed: ' . $e->getMessage()
+        ]);
+    }
 }
 ?>

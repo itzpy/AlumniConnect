@@ -17,7 +17,12 @@ if (!$order_number) {
 }
 
 require_once(dirname(__FILE__).'/../classes/order_class.php');
+require_once(dirname(__FILE__).'/../classes/cart_class.php');
+
 $order_obj = new Order();
+$cart = new Cart();
+$cart_count = $cart->getCartCount($user_id);
+
 $order = $order_obj->getOrderByNumber($order_number);
 
 if (!$order || $order['user_id'] != $user_id) {
@@ -82,12 +87,12 @@ $order_items = $order_obj->getOrderItems($order['order_id']);
                                             Quantity: <?php echo $item['quantity']; ?>
                                         </p>
                                         <p class="text-sm text-gray-600">
-                                            Price: GHS <?php echo number_format($item['price'], 2); ?>
+                                            Price: GHS <?php echo number_format($item['unit_price'] ?? $item['price'] ?? 0, 2); ?>
                                         </p>
                                     </div>
                                     <div class="text-right">
                                         <p class="font-bold text-gray-900">
-                                            GHS <?php echo number_format($item['price'] * $item['quantity'], 2); ?>
+                                            GHS <?php echo number_format($item['total_price'] ?? (($item['unit_price'] ?? $item['price'] ?? 0) * $item['quantity']), 2); ?>
                                         </p>
                                     </div>
                                 </div>
@@ -122,22 +127,28 @@ $order_items = $order_obj->getOrderItems($order['order_id']);
                             </div>
                             <div class="flex justify-between pt-2 border-t">
                                 <span class="text-gray-600">Date:</span>
-                                <span class="font-medium"><?php echo date('M d, Y', strtotime($order['order_date'])); ?></span>
+                                <span class="font-medium"><?php echo date('M d, Y', strtotime($order['date_created'] ?? $order['order_date'] ?? 'now')); ?></span>
                             </div>
                         </div>
 
                         <div class="border-t border-gray-200 pt-4 space-y-2">
                             <div class="flex justify-between text-sm">
                                 <span class="text-gray-600">Subtotal:</span>
-                                <span>GHS <?php echo number_format($order['subtotal'], 2); ?></span>
+                                <span>GHS <?php echo number_format($order['total_amount'] ?? 0, 2); ?></span>
                             </div>
+                            <?php if (($order['discount_amount'] ?? 0) > 0): ?>
+                            <div class="flex justify-between text-sm text-green-600">
+                                <span>Discount:</span>
+                                <span>-GHS <?php echo number_format($order['discount_amount'], 2); ?></span>
+                            </div>
+                            <?php endif; ?>
                             <div class="flex justify-between text-sm">
                                 <span class="text-gray-600">Tax:</span>
-                                <span>GHS <?php echo number_format($order['tax_amount'], 2); ?></span>
+                                <span>GHS <?php echo number_format($order['tax_amount'] ?? 0, 2); ?></span>
                             </div>
                             <div class="flex justify-between text-lg font-bold border-t pt-2">
                                 <span>Total:</span>
-                                <span>GHS <?php echo number_format($order['total_amount'], 2); ?></span>
+                                <span class="text-primary">GHS <?php echo number_format($order['final_amount'] ?? 0, 2); ?></span>
                             </div>
                         </div>
 

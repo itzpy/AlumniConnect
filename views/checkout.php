@@ -17,16 +17,37 @@ $user_type = $_SESSION['user_type'] ?? 'student';
 
 require_once(dirname(__FILE__).'/../classes/cart_class.php');
 require_once(dirname(__FILE__).'/../classes/order_class.php');
+require_once(dirname(__FILE__).'/../classes/coupon_class.php');
 
 $cart = new Cart();
 $order = new Order();
+$coupon_handler = new Coupon();
 
 // Get cart summary
 $cart_summary = $cart->getCartSummary($user_id);
+
+// Check for applied coupon
+$applied_coupon = $_SESSION['applied_coupon'] ?? null;
+$discount_amount = 0;
+if ($applied_coupon) {
+    // Re-validate coupon in case something changed
+    $validation = $coupon_handler->validateCoupon($applied_coupon['coupon_code'], $user_id, $cart_summary['subtotal']);
+    if ($validation['valid']) {
+        $discount_amount = $validation['coupon']['discount_amount'];
+        $_SESSION['applied_coupon'] = $validation['coupon'];
+    } else {
+        unset($_SESSION['applied_coupon']);
+        $applied_coupon = null;
+    }
+}
 $cart_items = $cart_summary['items'];
 $subtotal = $cart_summary['subtotal'];
 $tax_amount = $cart_summary['tax_amount'];
-$total = $cart_summary['total'];
+$pre_discount_total = $cart_summary['total'];
+
+// Apply discount if coupon is active
+$total = $pre_discount_total - $discount_amount;
+if ($total < 0) $total = 0;
 
 // Validate cart
 $validation = $cart->validateCart($user_id);
@@ -153,20 +174,59 @@ if (empty($cart_items)) {
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky top-24">
                         <h3 class="text-xl font-bold text-gray-900 mb-4">Order Summary</h3>
 
+                        <!-- Coupon Code Input -->
+                        <div class="mb-4 pb-4 border-b border-gray-200">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Have a coupon?</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="coupon_code" 
+                                       placeholder="Enter code" 
+                                       value="<?php echo $applied_coupon ? htmlspecialchars($applied_coupon['coupon_code']) : ''; ?>"
+                                       class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm <?php echo $applied_coupon ? 'bg-green-50 border-green-400' : ''; ?>"
+                                       <?php echo $applied_coupon ? 'readonly' : ''; ?>>
+                                <?php if ($applied_coupon): ?>
+                                    <button type="button" onclick="removeCoupon()" 
+                                            class="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                <?php else: ?>
+                                    <button type="button" onclick="applyCoupon()" id="applyCouponBtn"
+                                            class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium">
+                                        Apply
+                                    </button>
+                                <?php endif; ?>
+                            </div>
+                            <div id="couponMessage" class="mt-2 text-sm <?php echo $applied_coupon ? 'text-green-600' : 'hidden'; ?>">
+                                <?php if ($applied_coupon): ?>
+                                    <i class="fas fa-check-circle mr-1"></i><?php echo htmlspecialchars($applied_coupon['description'] ?? 'Coupon applied!'); ?>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
                         <div class="space-y-3 mb-4 pb-4 border-b border-gray-200">
                             <div class="flex justify-between text-gray-600">
                                 <span>Subtotal</span>
-                                <span>GHS <?php echo number_format($subtotal, 2); ?></span>
+                                <span id="displaySubtotal">GHS <?php echo number_format($subtotal, 2); ?></span>
                             </div>
+                            <?php if ($discount_amount > 0): ?>
+                            <div class="flex justify-between text-green-600" id="discountRow">
+                                <span>Discount</span>
+                                <span id="displayDiscount">- GHS <?php echo number_format($discount_amount, 2); ?></span>
+                            </div>
+                            <?php else: ?>
+                            <div class="flex justify-between text-green-600 hidden" id="discountRow">
+                                <span>Discount</span>
+                                <span id="displayDiscount">- GHS 0.00</span>
+                            </div>
+                            <?php endif; ?>
                             <div class="flex justify-between text-gray-600">
                                 <span>Tax</span>
-                                <span>GHS <?php echo number_format($tax_amount, 2); ?></span>
+                                <span id="displayTax">GHS <?php echo number_format($tax_amount, 2); ?></span>
                             </div>
                         </div>
 
                         <div class="flex justify-between items-center mb-6">
                             <span class="text-lg font-bold text-gray-900">Total</span>
-                            <span class="text-2xl font-bold text-primary">GHS <?php echo number_format($total, 2); ?></span>
+                            <span class="text-2xl font-bold text-primary" id="displayTotal">GHS <?php echo number_format($total, 2); ?></span>
                         </div>
 
                         <!-- Payment Method Info -->
@@ -196,6 +256,121 @@ if (empty($cart_items)) {
     </div>
 
     <script>
+        // Store current totals
+        let currentTotal = <?php echo $total; ?>;
+        let currentDiscount = <?php echo $discount_amount; ?>;
+        
+        /**
+         * Apply coupon code
+         */
+        function applyCoupon() {
+            const couponCode = document.getElementById('coupon_code').value.trim();
+            if (!couponCode) {
+                showCouponMessage('Please enter a coupon code', false);
+                return;
+            }
+            
+            const btn = document.getElementById('applyCouponBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            
+            fetch('../actions/apply_coupon_action.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ coupon_code: couponCode })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showCouponMessage(data.message, true);
+                    updateTotalsDisplay(data.totals);
+                    currentDiscount = data.totals.discount;
+                    currentTotal = data.totals.total;
+                    
+                    // Update coupon input
+                    document.getElementById('coupon_code').classList.add('bg-green-50', 'border-green-400');
+                    document.getElementById('coupon_code').readOnly = true;
+                    
+                    // Change button to remove
+                    btn.outerHTML = `<button type="button" onclick="removeCoupon()" 
+                                     class="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium">
+                                     <i class="fas fa-times"></i></button>`;
+                    
+                    // Reload page to update session properly
+                    setTimeout(() => location.reload(), 500);
+                } else {
+                    showCouponMessage(data.message, false);
+                    btn.disabled = false;
+                    btn.innerHTML = 'Apply';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showCouponMessage('Failed to apply coupon', false);
+                btn.disabled = false;
+                btn.innerHTML = 'Apply';
+            });
+        }
+        
+        /**
+         * Remove applied coupon
+         */
+        function removeCoupon() {
+            fetch('../actions/remove_coupon_action.php', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Reload to update session and UI
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+        
+        /**
+         * Show coupon message
+         */
+        function showCouponMessage(message, isSuccess) {
+            const msgDiv = document.getElementById('couponMessage');
+            msgDiv.innerHTML = `<i class="fas fa-${isSuccess ? 'check-circle' : 'exclamation-circle'} mr-1"></i>${message}`;
+            msgDiv.className = `mt-2 text-sm ${isSuccess ? 'text-green-600' : 'text-red-600'}`;
+            msgDiv.classList.remove('hidden');
+        }
+        
+        /**
+         * Update totals display
+         */
+        function updateTotalsDisplay(totals) {
+            document.getElementById('displaySubtotal').textContent = 'GHS ' + totals.subtotal.toFixed(2);
+            
+            const discountRow = document.getElementById('discountRow');
+            const discountDisplay = document.getElementById('displayDiscount');
+            if (totals.discount > 0) {
+                discountRow.classList.remove('hidden');
+                discountDisplay.textContent = '- GHS ' + totals.discount.toFixed(2);
+            } else {
+                discountRow.classList.add('hidden');
+            }
+            
+            document.getElementById('displayTax').textContent = 'GHS ' + totals.tax.toFixed(2);
+            document.getElementById('displayTotal').textContent = 'GHS ' + totals.total.toFixed(2);
+            
+            // Update payment button
+            updatePaymentButton(totals.total);
+        }
+        
+        /**
+         * Update payment button amount
+         */
+        function updatePaymentButton(amount) {
+            const btn = document.getElementById('paymentBtn');
+            btn.innerHTML = '<i class="fas fa-credit-card mr-2"></i>Pay GHS ' + amount.toFixed(2);
+        }
+        
         /**
          * Process payment using Paystack redirect flow
          */
@@ -211,9 +386,9 @@ if (empty($cart_items)) {
 
             // Get form data
             const email = document.getElementById('billing_email').value;
-            const total = <?php echo $total; ?>;
+            const total = currentTotal;
 
-            console.log('Initiating payment:', { email, total });
+            console.log('Initiating payment:', { email, total, discount: currentDiscount });
             
             // Show loading state
             const btn = document.getElementById('paymentBtn');
@@ -226,7 +401,8 @@ if (empty($cart_items)) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     amount: total,
-                    email: email
+                    email: email,
+                    discount: currentDiscount
                 })
             })
             .then(response => {
@@ -245,6 +421,7 @@ if (empty($cart_items)) {
                         sessionStorage.setItem('billing_email', email);
                         sessionStorage.setItem('billing_phone', document.getElementById('billing_phone').value);
                         sessionStorage.setItem('billing_notes', document.getElementById('notes').value);
+                        sessionStorage.setItem('discount_amount', currentDiscount);
                         
                         console.log('Redirecting to:', data.authorization_url);
                         // Redirect to Paystack payment page
@@ -253,23 +430,33 @@ if (empty($cart_items)) {
                         console.error('Error from server:', data);
                         alert('Error: ' + (data.message || 'Failed to initialize payment'));
                         btn.disabled = false;
-                        btn.innerHTML = '<i class="fas fa-credit-card mr-2"></i>Pay GHS <?php echo number_format($total, 2); ?>';
+                        btn.innerHTML = '<i class="fas fa-credit-card mr-2"></i>Pay GHS ' + currentTotal.toFixed(2);
                     }
                 } catch (e) {
                     console.error('JSON parse error:', e);
                     console.error('Response was:', text);
                     alert('Server error. Please check console and try again.');
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-credit-card mr-2"></i>Pay GHS <?php echo number_format($total, 2); ?>';
+                    btn.innerHTML = '<i class="fas fa-credit-card mr-2"></i>Pay GHS ' + currentTotal.toFixed(2);
                 }
             })
             .catch(error => {
                 console.error('Fetch error:', error);
                 alert('Failed to process payment. Please try again.');
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-credit-card mr-2"></i>Pay GHS <?php echo number_format($total, 2); ?>';
+                btn.innerHTML = '<i class="fas fa-credit-card mr-2"></i>Pay GHS ' + currentTotal.toFixed(2);
             });
         }
+        
+        // Allow pressing Enter in coupon field to apply
+        document.getElementById('coupon_code').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (!this.readOnly) {
+                    applyCoupon();
+                }
+            }
+        });
     </script>
 </body>
 </html>

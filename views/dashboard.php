@@ -9,6 +9,11 @@ $user_name = $_SESSION['name'] ?? 'User';
 $user_email = $_SESSION['email'] ?? '';
 $user_type = $_SESSION['user_type'] ?? 'alumni';
 $user_id = $_SESSION['user_id'] ?? 0;
+
+// Get cart count for navbar
+require_once(dirname(__FILE__).'/../classes/cart_class.php');
+$cart = new Cart();
+$cart_count = $cart->getCartCount($user_id);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -34,101 +39,22 @@ $user_id = $_SESSION['user_id'] ?? 0;
             }
         }
     </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn { animation: fadeIn 0.4s ease-out; }
+        .animate-fadeIn-delay-1 { animation: fadeIn 0.4s ease-out 0.1s both; }
+        .animate-fadeIn-delay-2 { animation: fadeIn 0.4s ease-out 0.2s both; }
+    </style>
 </head>
 <body class="bg-gray-50 font-sans">
-    <!-- Top Navigation -->
-    <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
-                <div class="flex items-center space-x-4">
-                    <a href="../index.php" class="flex items-center space-x-2 text-xl font-bold text-primary">
-                        <i class="fas fa-graduation-cap"></i>
-                        <span>Alumni Connect</span>
-                    </a>
-                </div>
-                
-                <div class="flex items-center space-x-6">
-                    <a href="alumni_search.php" class="text-gray-600 hover:text-primary transition-colors">
-                        <i class="fas fa-search text-lg"></i>
-                    </a>
-                    <a href="messages.php" class="relative text-gray-600 hover:text-primary transition-colors">
-                        <i class="fas fa-envelope text-lg"></i>
-                        <span id="message-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center" style="display: none;">0</span>
-                    </a>
-                    <a href="notifications.php" class="relative text-gray-600 hover:text-primary transition-colors">
-                        <i class="fas fa-bell text-lg"></i>
-                        <span id="notification-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center" style="display: none;">0</span>
-                    </a>
-                    <div class="relative group">
-                        <button class="flex items-center space-x-2 text-gray-700 hover:text-primary transition-colors">
-                            <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($user_name); ?>&background=7A1E1E&color=fff" 
-                                 alt="Profile" class="w-8 h-8 rounded-full">
-                            <span class="font-medium"><?php echo htmlspecialchars($user_name); ?></span>
-                            <i class="fas fa-chevron-down text-sm"></i>
-                        </button>
-                        <div class="hidden group-hover:block absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 border border-gray-200">
-                            <a href="profile.php" class="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors">
-                                <i class="fas fa-user mr-2"></i> My Profile
-                            </a>
-                            <a href="settings.php" class="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors">
-                                <i class="fas fa-cog mr-2"></i> Settings
-                            </a>
-                            <hr class="my-2">
-                            <a href="../login/logout.php" class="block px-4 py-2 text-red-600 hover:bg-gray-50 transition-colors">
-                                <i class="fas fa-sign-out-alt mr-2"></i> Logout
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </nav>
+    <?php include 'includes/navbar.php'; ?>
 
     <div class="flex min-h-screen">
-        <!-- Sidebar -->
-        <aside class="w-64 bg-white border-r border-gray-200 hidden lg:block">
-            <nav class="p-4 space-y-1">
-                <a href="dashboard.php" class="flex items-center space-x-3 px-4 py-3 bg-primary text-white rounded-lg transition-colors">
-                    <i class="fas fa-home"></i>
-                    <span class="font-medium">Dashboard</span>
-                </a>
-                <a href="alumni_search.php" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-                    <i class="fas fa-search"></i>
-                    <span class="font-medium">Find Alumni</span>
-                </a>
-                <a href="connections.php" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-                    <i class="fas fa-users"></i>
-                    <span class="font-medium">My Network</span>
-                </a>
-                <a href="messages.php" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-                    <i class="fas fa-envelope"></i>
-                    <span class="font-medium">Messages</span>
-                </a>
-                <a href="jobs.php" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-                    <i class="fas fa-briefcase"></i>
-                    <span class="font-medium">Job Board</span>
-                </a>
-                <a href="events.php" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-                    <i class="fas fa-calendar"></i>
-                    <span class="font-medium">Events</span>
-                </a>
-                <a href="mentorship.php" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-                    <i class="fas fa-hands-helping"></i>
-                    <span class="font-medium">Mentorship</span>
-                </a>
-                
-                <hr class="my-4">
-                
-                <a href="profile.php" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-                    <i class="fas fa-user"></i>
-                    <span class="font-medium">My Profile</span>
-                </a>
-                <a href="settings.php" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-                    <i class="fas fa-cog"></i>
-                    <span class="font-medium">Settings</span>
-                </a>
-            </nav>
-        </aside>
+        <?php include 'includes/sidebar.php'; ?>
 
         <!-- Main Content -->
         <main class="flex-1 p-6 lg:p-8">
@@ -239,8 +165,8 @@ $user_id = $_SESSION['user_id'] ?? 0;
                     </div>
 
                 <?php else: ?>
-                    <!-- Admin Stats -->
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                    <!-- Admin Stats with link to admin dashboard -->
+                    <a href="../admin/dashboard.php" class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-primary transition-all">
                         <div class="flex items-center justify-between mb-4">
                             <div class="bg-blue-100 p-3 rounded-lg">
                                 <i class="fas fa-users text-2xl text-blue-600"></i>
@@ -249,31 +175,31 @@ $user_id = $_SESSION['user_id'] ?? 0;
                         </div>
                         <h3 class="text-2xl font-bold text-gray-900 mb-1">1,248</h3>
                         <p class="text-gray-600 text-sm">Total Users</p>
-                    </div>
+                    </a>
 
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                    <a href="../admin/services.php" class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-primary transition-all">
                         <div class="flex items-center justify-between mb-4">
                             <div class="bg-green-100 p-3 rounded-lg">
-                                <i class="fas fa-comments text-2xl text-green-600"></i>
+                                <i class="fas fa-box text-2xl text-green-600"></i>
                             </div>
-                            <span class="text-sm text-gray-500">This week</span>
+                            <span class="text-sm text-gray-500">Active</span>
                         </div>
                         <h3 class="text-2xl font-bold text-gray-900 mb-1">156</h3>
-                        <p class="text-gray-600 text-sm">Active Posts</p>
-                    </div>
+                        <p class="text-gray-600 text-sm">Platform Services</p>
+                    </a>
 
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                    <a href="../admin/orders.php" class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-primary transition-all">
                         <div class="flex items-center justify-between mb-4">
-                            <div class="bg-red-100 p-3 rounded-lg">
-                                <i class="fas fa-flag text-2xl text-red-600"></i>
+                            <div class="bg-orange-100 p-3 rounded-lg">
+                                <i class="fas fa-shopping-cart text-2xl text-orange-600"></i>
                             </div>
                             <span class="text-sm text-gray-500">Pending</span>
                         </div>
-                        <h3 class="text-2xl font-bold text-gray-900 mb-1">7</h3>
-                        <p class="text-gray-600 text-sm">Reports</p>
-                    </div>
+                        <h3 class="text-2xl font-bold text-gray-900 mb-1">24</h3>
+                        <p class="text-gray-600 text-sm">Orders</p>
+                    </a>
 
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                    <a href="../admin/users.php" class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-primary transition-all">
                         <div class="flex items-center justify-between mb-4">
                             <div class="bg-purple-100 p-3 rounded-lg">
                                 <i class="fas fa-chart-line text-2xl text-purple-600"></i>
@@ -282,9 +208,93 @@ $user_id = $_SESSION['user_id'] ?? 0;
                         </div>
                         <h3 class="text-2xl font-bold text-gray-900 mb-1">94%</h3>
                         <p class="text-gray-600 text-sm">Engagement Rate</p>
-                    </div>
+                    </a>
                 <?php endif; ?>
             </div>
+
+            <!-- Quick Actions - Service Cards -->
+            <div class="mb-8 animate-fadeIn">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Events Card -->
+                    <a href="events.php" class="group bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl p-6 text-white hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-calendar-alt text-2xl"></i>
+                            </div>
+                            <i class="fas fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+                        </div>
+                        <h3 class="text-lg font-bold mb-1">Events & Tickets</h3>
+                        <p class="text-white/80 text-sm">Browse upcoming events and purchase tickets</p>
+                    </a>
+
+                    <!-- Mentorship Card -->
+                    <a href="mentorship.php" class="group bg-gradient-to-br from-green-500 to-green-700 rounded-xl p-6 text-white hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-user-graduate text-2xl"></i>
+                            </div>
+                            <i class="fas fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+                        </div>
+                        <h3 class="text-lg font-bold mb-1">Find a Mentor</h3>
+                        <p class="text-white/80 text-sm">Book 1-on-1 sessions with alumni mentors</p>
+                    </a>
+
+                    <!-- Jobs Card -->
+                    <a href="jobs.php" class="group bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl p-6 text-white hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-briefcase text-2xl"></i>
+                            </div>
+                            <i class="fas fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+                        </div>
+                        <h3 class="text-lg font-bold mb-1">Job Board</h3>
+                        <p class="text-white/80 text-sm"><?php echo $user_type === 'alumni' ? 'Post jobs and find talent' : 'Discover career opportunities'; ?></p>
+                    </a>
+                </div>
+            </div>
+
+            <!-- AI-Powered Recommendations Section -->
+            <?php if ($user_type !== 'admin'): ?>
+            <div class="mb-8 animate-fadeIn-delay-1">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-magic text-white text-sm"></i>
+                        </div>
+                        <h2 class="text-xl font-bold text-gray-900">Recommended for You</h2>
+                        <span class="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">AI Powered</span>
+                    </div>
+                    <a href="services.php" class="text-primary hover:text-primary-dark text-sm font-medium">
+                        View All <i class="fas fa-arrow-right ml-1"></i>
+                    </a>
+                </div>
+                
+                <div id="recommendations-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Loading skeleton -->
+                    <div class="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
+                        <div class="w-full h-32 bg-gray-200 rounded-lg mb-3"></div>
+                        <div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                        <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                    <div class="bg-white rounded-xl border border-gray-200 p-4 animate-pulse hidden md:block">
+                        <div class="w-full h-32 bg-gray-200 rounded-lg mb-3"></div>
+                        <div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                        <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                    <div class="bg-white rounded-xl border border-gray-200 p-4 animate-pulse hidden lg:block">
+                        <div class="w-full h-32 bg-gray-200 rounded-lg mb-3"></div>
+                        <div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                        <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                    <div class="bg-white rounded-xl border border-gray-200 p-4 animate-pulse hidden lg:block">
+                        <div class="w-full h-32 bg-gray-200 rounded-lg mb-3"></div>
+                        <div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                        <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Community Feed -->
@@ -504,10 +514,91 @@ $user_id = $_SESSION['user_id'] ?? 0;
         }
 
         // Update counts on page load
-        document.addEventListener('DOMContentLoaded', updateCounts);
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCounts();
+            loadRecommendations();
+        });
 
         // Update counts every 30 seconds
         setInterval(updateCounts, 30000);
+        
+        /**
+         * Load AI-powered recommendations
+         */
+        function loadRecommendations() {
+            const container = document.getElementById('recommendations-container');
+            if (!container) return;
+            
+            fetch('../actions/get_recommendations_action.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'personalized', limit: 4 })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.recommendations.length > 0) {
+                    container.innerHTML = data.recommendations.map(rec => createRecommendationCard(rec)).join('');
+                } else {
+                    // Show fallback message
+                    container.innerHTML = `
+                        <div class="col-span-full text-center py-8 text-gray-500">
+                            <i class="fas fa-lightbulb text-4xl mb-3 text-gray-300"></i>
+                            <p>Browse our services to get personalized recommendations!</p>
+                            <a href="services.php" class="inline-block mt-3 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors">
+                                Explore Services
+                            </a>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error loading recommendations:', error);
+                container.innerHTML = '<div class="col-span-full text-center py-8 text-gray-400">Unable to load recommendations</div>';
+            });
+        }
+        
+        /**
+         * Create a recommendation card HTML
+         */
+        function createRecommendationCard(service) {
+            const typeIcons = {
+                'mentorship': 'fa-user-graduate',
+                'event': 'fa-calendar-alt',
+                'job_posting': 'fa-briefcase',
+                'premium': 'fa-star'
+            };
+            const typeColors = {
+                'mentorship': 'from-green-500 to-emerald-600',
+                'event': 'from-purple-500 to-violet-600',
+                'job_posting': 'from-blue-500 to-indigo-600',
+                'premium': 'from-amber-500 to-orange-600'
+            };
+            
+            const icon = typeIcons[service.service_type] || 'fa-box';
+            const gradient = typeColors[service.service_type] || 'from-gray-500 to-gray-600';
+            
+            const imageHtml = service.image_url 
+                ? `<img src="${service.image_url}" alt="${service.service_name}" class="w-full h-32 object-cover rounded-lg mb-3">`
+                : `<div class="w-full h-32 bg-gradient-to-br ${gradient} rounded-lg mb-3 flex items-center justify-center">
+                     <i class="fas ${icon} text-4xl text-white/80"></i>
+                   </div>`;
+            
+            return `
+                <a href="single_service.php?id=${service.service_id}" 
+                   class="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-lg hover:border-primary/30 transition-all duration-300 group">
+                    ${imageHtml}
+                    <div class="flex items-start justify-between mb-2">
+                        <span class="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">${service.type_label}</span>
+                        <span class="text-primary font-bold text-sm">${service.formatted_price}</span>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-1 line-clamp-2 group-hover:text-primary transition-colors">${service.service_name}</h3>
+                    <p class="text-xs text-purple-600 flex items-center gap-1">
+                        <i class="fas fa-magic"></i>
+                        ${service.recommendation_reason}
+                    </p>
+                </a>
+            `;
+        }
     </script>
 </body>
 </html>

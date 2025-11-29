@@ -77,6 +77,7 @@ $cart_count = $cart->getCartCount($user_id);
         .line-clamp-3 {
             display: -webkit-box;
             -webkit-line-clamp: 3;
+            line-clamp: 3;
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
@@ -96,6 +97,45 @@ $cart_count = $cart->getCartCount($user_id);
                 <h1 class="text-3xl font-bold text-gray-900 mb-2">Browse Services</h1>
                 <p class="text-gray-600">Explore job postings, mentorship sessions, events, and premium features</p>
             </div>
+
+            <!-- AI Recommendations Section (collapsed by default if filters are active) -->
+            <?php if (!$service_type && !$category && !$search && !$min_price && !$max_price): ?>
+            <div class="mb-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-magic text-white text-sm"></i>
+                        </div>
+                        <h2 class="text-lg font-bold text-gray-900">Recommended for You</h2>
+                        <span class="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">AI Powered</span>
+                    </div>
+                </div>
+                
+                <div id="services-recommendations" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Loading skeleton -->
+                    <div class="bg-white rounded-lg p-3 animate-pulse">
+                        <div class="w-full h-24 bg-gray-200 rounded-lg mb-2"></div>
+                        <div class="h-3 bg-gray-200 rounded w-3/4 mb-1"></div>
+                        <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                    <div class="bg-white rounded-lg p-3 animate-pulse hidden md:block">
+                        <div class="w-full h-24 bg-gray-200 rounded-lg mb-2"></div>
+                        <div class="h-3 bg-gray-200 rounded w-3/4 mb-1"></div>
+                        <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                    <div class="bg-white rounded-lg p-3 animate-pulse hidden lg:block">
+                        <div class="w-full h-24 bg-gray-200 rounded-lg mb-2"></div>
+                        <div class="h-3 bg-gray-200 rounded w-3/4 mb-1"></div>
+                        <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                    <div class="bg-white rounded-lg p-3 animate-pulse hidden lg:block">
+                        <div class="w-full h-24 bg-gray-200 rounded-lg mb-2"></div>
+                        <div class="h-3 bg-gray-200 rounded w-3/4 mb-1"></div>
+                        <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
 
             <!-- Search and Filter Section -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
@@ -171,8 +211,13 @@ $cart_count = $cart->getCartCount($user_id);
                         <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer">
                             <!-- Service Image -->
                             <div class="h-48 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                                <?php if ($item['image_url']): ?>
-                                    <img src="<?php echo htmlspecialchars($item['image_url']); ?>" 
+                                <?php if ($item['image_url']): 
+                                    // Check if it's a full URL or just a filename
+                                    $image_src = (strpos($item['image_url'], 'http') === 0) 
+                                        ? $item['image_url'] 
+                                        : '../uploads/services/' . $item['image_url'];
+                                ?>
+                                    <img src="<?php echo htmlspecialchars($image_src); ?>" 
                                          alt="<?php echo htmlspecialchars($item['service_name']); ?>"
                                          class="w-full h-full object-cover">
                                 <?php else: ?>
@@ -256,10 +301,104 @@ $cart_count = $cart->getCartCount($user_id);
                     </a>
                 </div>
             <?php endif; ?>
+            </div>
         </main>
     </div>
 
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+
     <script>
+        // Load recommendations on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadServicesRecommendations();
+        });
+        
+        /**
+         * Load AI recommendations for services page
+         */
+        function loadServicesRecommendations() {
+            const container = document.getElementById('services-recommendations');
+            if (!container) return;
+            
+            fetch('../actions/get_recommendations_action.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'personalized', limit: 4 })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.recommendations.length > 0) {
+                    container.innerHTML = data.recommendations.map(rec => createMiniRecommendationCard(rec)).join('');
+                } else {
+                    container.innerHTML = `
+                        <div class="col-span-full text-center py-4 text-gray-500 text-sm">
+                            <i class="fas fa-lightbulb mr-2"></i>Make a purchase to get personalized recommendations!
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                container.parentElement.style.display = 'none';
+            });
+        }
+        
+        /**
+         * Create mini recommendation card
+         */
+        function createMiniRecommendationCard(service) {
+            const typeIcons = {
+                'mentorship': 'fa-user-graduate',
+                'event': 'fa-calendar-alt',
+                'job_posting': 'fa-briefcase',
+                'premium': 'fa-star'
+            };
+            const typeColors = {
+                'mentorship': 'from-green-400 to-emerald-500',
+                'event': 'from-purple-400 to-violet-500',
+                'job_posting': 'from-blue-400 to-indigo-500',
+                'premium': 'from-amber-400 to-orange-500'
+            };
+            
+            const icon = typeIcons[service.service_type] || 'fa-box';
+            const gradient = typeColors[service.service_type] || 'from-gray-400 to-gray-500';
+            
+            const imageHtml = service.image_url 
+                ? `<img src="${service.image_url}" alt="${service.service_name}" class="w-full h-24 object-cover rounded-lg mb-2">`
+                : `<div class="w-full h-24 bg-gradient-to-br ${gradient} rounded-lg mb-2 flex items-center justify-center">
+                     <i class="fas ${icon} text-2xl text-white/80"></i>
+                   </div>`;
+            
+            return `
+                <a href="single_service.php?id=${service.service_id}" 
+                   class="bg-white rounded-lg p-3 hover:shadow-md transition-all duration-200 block">
+                    ${imageHtml}
+                    <h4 class="font-medium text-gray-900 text-sm line-clamp-1">${service.service_name}</h4>
+                    <div class="flex items-center justify-between mt-1">
+                        <span class="text-primary font-bold text-sm">${service.formatted_price}</span>
+                        <span class="text-purple-500 text-xs"><i class="fas fa-magic"></i></span>
+                    </div>
+                </a>
+            `;
+        }
+        
+        /**
+         * Show toast notification
+         */
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `px-6 py-3 rounded-lg text-white font-medium shadow-lg animate-fadeIn flex items-center gap-2 ${type === 'success' ? 'bg-green-500' : 'bg-red-500'}`;
+            toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>${message}`;
+            document.getElementById('toast-container').appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100px)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
         /**
          * Add service to cart via AJAX
          * @param {number} serviceId - The service ID to add
@@ -276,17 +415,16 @@ $cart_count = $cart->getCartCount($user_id);
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Show success message
-                    alert('Service added to cart successfully!');
-                    // Update cart count in navbar
-                    location.reload();
+                    showToast('Added to cart successfully!', 'success');
+                    // Update cart count in navbar after a brief delay
+                    setTimeout(() => location.reload(), 1500);
                 } else {
-                    alert('Error: ' + (data.message || 'Failed to add to cart'));
+                    showToast(data.message || 'Failed to add to cart', 'error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Failed to add to cart. Please try again.');
+                showToast('Failed to add to cart. Please try again.', 'error');
             });
         }
     </script>

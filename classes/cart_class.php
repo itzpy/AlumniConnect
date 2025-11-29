@@ -39,17 +39,21 @@ class Cart extends db_connection {
             return $this->updateCartQuantity($existing['cart_id'], $new_quantity);
         }
         
-        // Escape strings
-        $selected_date = $selected_date ? "'" . mysqli_real_escape_string($this->db_conn(), $selected_date) . "'" : 'NULL';
-        $selected_time = $selected_time ? "'" . mysqli_real_escape_string($this->db_conn(), $selected_time) . "'" : 'NULL';
-        $special_requests = $special_requests ? "'" . mysqli_real_escape_string($this->db_conn(), $special_requests) . "'" : 'NULL';
+        // Get connection and escape strings
+        $conn = $this->db_conn();
+        $selected_date_val = $selected_date ? "'" . mysqli_real_escape_string($conn, $selected_date) . "'" : 'NULL';
+        $selected_time_val = $selected_time ? "'" . mysqli_real_escape_string($conn, $selected_time) . "'" : 'NULL';
+        $special_requests_val = $special_requests ? "'" . mysqli_real_escape_string($conn, $special_requests) . "'" : 'NULL';
         
         // Insert new cart item
         $sql = "INSERT INTO cart (user_id, service_id, quantity, selected_date, selected_time, special_requests) 
-                VALUES ($user_id, $service_id, $quantity, $selected_date, $selected_time, $special_requests)";
+                VALUES ($user_id, $service_id, $quantity, $selected_date_val, $selected_time_val, $special_requests_val)";
         
-        if ($this->db_query($sql)) {
-            return mysqli_insert_id($this->db_conn());
+        // Execute directly on connection to get insert_id
+        $result = mysqli_query($conn, $sql);
+        
+        if ($result) {
+            return mysqli_insert_id($conn);
         }
         return false;
     }

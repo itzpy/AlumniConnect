@@ -2,20 +2,31 @@
 /**
  * Paystack Configuration
  * Secure payment gateway settings for Alumni Connect
+ * 
+ * IMPORTANT: For production, replace test keys with live keys
+ * and consider using environment variables
  */
 require_once 'db_cred.php';
 
-// Paystack API Keys
-define('PAYSTACK_SECRET_KEY', 'sk_test_1a36a80adbbd3e6805714561faa5cbeae4f807dc'); // Replace with your secret key
-define('PAYSTACK_PUBLIC_KEY', 'pk_test_1f102a9bf310c0b1c3a926083f43fb0517c4b485'); // Replace with your public key
+// Load environment config if exists
+$env_config = [];
+if (file_exists(dirname(__FILE__) . '/../config/env.php')) {
+    $env_config = include dirname(__FILE__) . '/../config/env.php';
+}
+
+// Paystack API Keys - Use environment config or fallback to test keys
+// IMPORTANT: Replace with live keys in production!
+define('PAYSTACK_SECRET_KEY', $env_config['PAYSTACK_SECRET_KEY'] ?? 'sk_test_1a36a80adbbd3e6805714561faa5cbeae4f807dc');
+define('PAYSTACK_PUBLIC_KEY', $env_config['PAYSTACK_PUBLIC_KEY'] ?? 'pk_test_1f102a9bf310c0b1c3a926083f43fb0517c4b485');
 
 // Paystack URLs
 define('PAYSTACK_API_URL', 'https://api.paystack.co');
 define('PAYSTACK_INIT_ENDPOINT', PAYSTACK_API_URL . '/transaction/initialize');
 define('PAYSTACK_VERIFY_ENDPOINT', PAYSTACK_API_URL . '/transaction/verify/');
 
-define('APP_ENVIRONMENT', 'test'); 
-define('APP_BASE_URL', 'http://localhost/AlumniConnect'); 
+// Application settings
+define('APP_ENVIRONMENT', $env_config['APP_ENV'] ?? 'test');
+define('APP_BASE_URL', $env_config['APP_URL'] ?? 'http://localhost/AlumniConnect');
 define('PAYSTACK_CALLBACK_URL', APP_BASE_URL . '/views/paystack_callback.php'); // Callback after payment
 
 /**

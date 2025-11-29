@@ -17,9 +17,13 @@ if (!isset($_SESSION['user_id'])) {
 // Get reference from URL
 $reference = isset($_GET['reference']) ? trim($_GET['reference']) : null;
 
+// Check if this is a subscription payment
+$is_subscription = $reference && strpos($reference, 'SUB-') === 0;
+
 if (!$reference) {
     // Payment cancelled or reference missing
-    header('Location: checkout.php?error=cancelled');
+    $redirect_url = $is_subscription ? 'subscribe.php?error=cancelled' : 'checkout.php?error=cancelled';
+    header('Location: ' . $redirect_url);
     exit();
 }
 
@@ -165,10 +169,18 @@ $user_name = $_SESSION['name'] ?? 'User';
                     // Payment verified successfully
                     document.getElementById('successBox').style.display = 'block';
                     
-                    // Redirect to success page
-                    setTimeout(() => {
-                        window.location.replace(`payment_success.php?order=${encodeURIComponent(data.order_number)}`);
-                    }, 500);
+                    // Check if this is a subscription or regular order
+                    if (data.is_subscription) {
+                        // Redirect to subscription success page
+                        setTimeout(() => {
+                            window.location.replace(`subscription_success.php?plan=${encodeURIComponent(data.plan)}`);
+                        }, 500);
+                    } else {
+                        // Redirect to order success page
+                        setTimeout(() => {
+                            window.location.replace(`payment_success.php?order=${encodeURIComponent(data.order_number)}`);
+                        }, 500);
+                    }
                     
                 } else {
                     // Payment verification failed
@@ -176,8 +188,9 @@ $user_name = $_SESSION['name'] ?? 'User';
                     showError(errorMsg);
                     
                     // Redirect after 5 seconds
+                    const errorRedirect = <?php echo $is_subscription ? "'subscribe.php'" : "'checkout.php'"; ?>;
                     setTimeout(() => {
-                        window.location.href = 'checkout.php?error=verification_failed';
+                        window.location.href = errorRedirect + '?error=verification_failed';
                     }, 5000);
                 }
                 

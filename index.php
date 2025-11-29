@@ -55,6 +55,7 @@
                         <li><a href="login/logout.php" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors"><i class="fas fa-sign-out-alt mr-1"></i> Logout</a></li>
                     <?php else: ?>
                         <li><a href="#features" class="text-gray-700 hover:text-primary transition-colors">Features</a></li>
+                        <li><a href="pricing.php" class="text-gray-700 hover:text-primary transition-colors">Pricing</a></li>
                         <li><a href="#about" class="text-gray-700 hover:text-primary transition-colors">About</a></li>
                         <li><a href="#contact" class="text-gray-700 hover:text-primary transition-colors">Contact</a></li>
                         <li><a href="login/login.php" class="border-2 border-primary text-primary px-4 py-2 rounded-lg hover:bg-primary hover:text-white transition-colors">Login</a></li>

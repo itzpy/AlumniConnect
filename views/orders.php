@@ -15,7 +15,11 @@ $user_name = $_SESSION['name'] ?? 'User';
 $user_type = $_SESSION['user_type'] ?? 'student';
 
 require_once(dirname(__FILE__).'/../classes/order_class.php');
+require_once(dirname(__FILE__).'/../classes/cart_class.php');
+
 $order = new Order();
+$cart = new Cart();
+$cart_count = $cart->getCartCount($user_id);
 
 // Get all user orders
 $orders = $order->getUserOrders($user_id);

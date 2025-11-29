@@ -1,0 +1,7 @@
+# Deny access to all files in this directory
+<Files "*">
+    Require all denied
+</Files>
+
+# Prevent directory listing
+Options -Indexes

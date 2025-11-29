@@ -1,14 +1,17 @@
-// Settings/core.php
 <?php
-session_start();
+// Settings/core.php
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 
 //for header redirection
 ob_start();
 
 //function to check for login
-if (!isset($_SESSION['id'])) {
-    header("Location: ../Login/login_register.php");
+if (!isset($_SESSION['user_id']) && !isset($_SESSION['id'])) {
+    header("Location: ../login/login.php");
     exit;
 }
 
