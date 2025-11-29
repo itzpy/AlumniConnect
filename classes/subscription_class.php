@@ -145,30 +145,43 @@ class Subscription extends db_connection {
      * Create a new subscription
      */
     public function createSubscription($user_id, $plan_type, $payment_reference = null) {
-        $conn = $this->db_conn();
+        // Use single connection for the entire operation
+        if (!$this->db_connect()) {
+            error_log("Subscription: Failed to connect to database");
+            return false;
+        }
+        
         $user_id = intval($user_id);
-        $plan_type = mysqli_real_escape_string($conn, $plan_type);
+        $plan_type = mysqli_real_escape_string($this->db, $plan_type);
         
         // Calculate expiry (1 month from now)
         $expires_at = date('Y-m-d H:i:s', strtotime('+1 month'));
         
         // Deactivate any existing subscriptions
-        $this->deactivateUserSubscriptions($user_id);
+        $deactivate_sql = "UPDATE subscriptions SET status = 'cancelled' WHERE user_id = $user_id AND status = 'active'";
+        mysqli_query($this->db, $deactivate_sql);
         
         // Get plan price
         $plan = $this->getPlanDetails($plan_type);
         $amount = $plan['price'];
         
-        $payment_ref = $payment_reference ? "'".mysqli_real_escape_string($conn, $payment_reference)."'" : "NULL";
+        $payment_ref = $payment_reference ? "'".mysqli_real_escape_string($this->db, $payment_reference)."'" : "NULL";
         
         $sql = "INSERT INTO subscriptions (user_id, plan_type, amount, status, payment_reference, expires_at) 
                 VALUES ($user_id, '$plan_type', $amount, 'active', $payment_ref, '$expires_at')";
         
-        if ($this->db_query($sql)) {
-            return mysqli_insert_id($conn);
-        }
+        error_log("Subscription SQL: $sql");
         
-        return false;
+        $result = mysqli_query($this->db, $sql);
+        
+        if ($result) {
+            $insert_id = mysqli_insert_id($this->db);
+            error_log("Subscription created successfully with ID: $insert_id");
+            return $insert_id;
+        } else {
+            error_log("Subscription insert failed: " . mysqli_error($this->db));
+            return false;
+        }
     }
     
     /**
