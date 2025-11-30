@@ -354,13 +354,23 @@ if (!$stats) {
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({service_id: serviceId})
                 })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (data.success) {
+                        alert('Service deleted successfully!');
                         location.reload();
                     } else {
                         alert(data.message || 'Error deleting service');
                     }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to delete service. Check console for details.');
                 });
             }
         }

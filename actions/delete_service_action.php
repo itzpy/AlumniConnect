@@ -28,12 +28,18 @@ if (!$service_id) {
     exit;
 }
 
-require_once '../classes/service_class.php';
+require_once '../settings/db_class.php';
 
-$serviceClass = new Service();
+// Use direct database connection for reliability
+$db = new db_connection();
+if (!$db->db_connect()) {
+    echo json_encode(['success' => false, 'message' => 'Database connection failed']);
+    exit;
+}
 
-// Soft delete the service
-$result = $serviceClass->deleteService($service_id);
+// Soft delete the service by setting is_active = 0
+$sql = "UPDATE services SET is_active = 0 WHERE service_id = $service_id";
+$result = $db->db_query($sql);
 
 if ($result) {
     echo json_encode([
@@ -41,6 +47,7 @@ if ($result) {
         'message' => 'Service deleted successfully'
     ]);
 } else {
+    error_log("Failed to delete service ID: $service_id");
     echo json_encode(['success' => false, 'message' => 'Failed to delete service']);
 }
 ?>
