@@ -63,6 +63,32 @@ $coupons = $coupon_handler->getAllCoupons();
                 </button>
             </div>
 
+            <!-- Filters -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+                <div class="flex flex-col md:flex-row md:items-center gap-4">
+                    <div class="flex-1">
+                        <div class="relative">
+                            <input type="text" id="searchCoupons" placeholder="Search coupons..." 
+                                   class="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-primary focus:bg-white transition-all">
+                            <i class="fas fa-search absolute left-3.5 top-3.5 text-gray-400"></i>
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <select id="statusFilter" class="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-primary">
+                            <option value="">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="expired">Expired</option>
+                        </select>
+                        <select id="typeFilter" class="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-primary">
+                            <option value="">All Types</option>
+                            <option value="percentage">Percentage</option>
+                            <option value="fixed">Fixed Amount</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
             <!-- Coupons Table -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div class="overflow-x-auto">
@@ -368,6 +394,46 @@ $coupons = $coupon_handler->getAllCoupons();
                 } else {
                     alert(result.message || 'Failed to delete coupon');
                 }
+            });
+        }
+        
+        // Filter functionality
+        document.getElementById('searchCoupons').addEventListener('input', filterCoupons);
+        document.getElementById('statusFilter').addEventListener('change', filterCoupons);
+        document.getElementById('typeFilter').addEventListener('change', filterCoupons);
+        
+        function filterCoupons() {
+            const searchTerm = document.getElementById('searchCoupons').value.toLowerCase();
+            const status = document.getElementById('statusFilter').value.toLowerCase();
+            const type = document.getElementById('typeFilter').value.toLowerCase();
+            const rows = document.querySelectorAll('tbody tr');
+            
+            rows.forEach(row => {
+                const rowText = row.textContent.toLowerCase();
+                let showRow = true;
+                
+                // Search filter
+                if (searchTerm && !rowText.includes(searchTerm)) showRow = false;
+                
+                // Status filter
+                if (status) {
+                    const statusCell = row.querySelector('td:nth-child(6)');
+                    if (statusCell && !statusCell.textContent.toLowerCase().includes(status)) {
+                        showRow = false;
+                    }
+                }
+                
+                // Type filter (percentage vs fixed)
+                if (type) {
+                    const discountCell = row.querySelector('td:nth-child(2)');
+                    if (discountCell) {
+                        const hasPercentage = discountCell.textContent.includes('%');
+                        if (type === 'percentage' && !hasPercentage) showRow = false;
+                        if (type === 'fixed' && hasPercentage) showRow = false;
+                    }
+                }
+                
+                row.style.display = showRow ? '' : 'none';
             });
         }
     </script>

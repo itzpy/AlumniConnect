@@ -206,22 +206,22 @@ if ($role_counts_result) {
 
             <!-- Filters -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-                <form method="GET" class="flex flex-col md:flex-row md:items-center gap-4">
+                <form method="GET" id="filterForm" class="flex flex-col md:flex-row md:items-center gap-4">
                     <div class="flex-1">
                         <div class="relative">
-                            <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>" placeholder="Search by name or email..." 
+                            <input type="text" name="search" id="searchUsers" value="<?php echo htmlspecialchars($search); ?>" placeholder="Search by name or email..." 
                                    class="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-primary focus:bg-white transition-all">
                             <i class="fas fa-search absolute left-3.5 top-3.5 text-gray-400"></i>
                         </div>
                     </div>
                     <div class="flex gap-3">
-                        <select name="role" class="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-primary">
+                        <select name="role" id="roleFilter" class="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-primary">
                             <option value="">All Roles</option>
                             <option value="student" <?php echo $filter_role === 'student' ? 'selected' : ''; ?>>Students</option>
                             <option value="alumni" <?php echo $filter_role === 'alumni' ? 'selected' : ''; ?>>Alumni</option>
                             <option value="admin" <?php echo $filter_role === 'admin' ? 'selected' : ''; ?>>Admins</option>
                         </select>
-                        <select name="status" class="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-primary">
+                        <select name="status" id="statusFilter" class="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-primary">
                             <option value="">All Status</option>
                             <option value="active" <?php echo $filter_status === 'active' ? 'selected' : ''; ?>>Active</option>
                             <option value="inactive" <?php echo $filter_status === 'inactive' ? 'selected' : ''; ?>>Inactive</option>
@@ -364,5 +364,25 @@ if ($role_counts_result) {
             </div>
         </main>
     </div>
+
+    <script>
+        // Auto-submit form when filters change
+        document.getElementById('roleFilter').addEventListener('change', function() {
+            document.getElementById('filterForm').submit();
+        });
+        
+        document.getElementById('statusFilter').addEventListener('change', function() {
+            document.getElementById('filterForm').submit();
+        });
+        
+        // Debounce search input
+        let searchTimeout;
+        document.getElementById('searchUsers').addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                document.getElementById('filterForm').submit();
+            }, 500);
+        });
+    </script>
 </body>
 </html>

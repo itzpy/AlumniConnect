@@ -364,22 +364,13 @@ $orders = $db->db_fetch_all("SELECT o.*, u.first_name, u.last_name, u.email
     <script>
         let currentOrderId = null;
 
-        // Search functionality
-        document.getElementById('searchOrders').addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            const rows = document.querySelectorAll('tbody tr');
-            
-            rows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(searchTerm) ? '' : 'none';
-            });
-        });
-
-        // Filters
+        // Search and filter functionality
+        document.getElementById('searchOrders').addEventListener('input', filterTable);
         document.getElementById('statusFilter').addEventListener('change', filterTable);
         document.getElementById('paymentFilter').addEventListener('change', filterTable);
 
         function filterTable() {
+            const searchTerm = document.getElementById('searchOrders').value.toLowerCase();
             const status = document.getElementById('statusFilter').value.toLowerCase();
             const payment = document.getElementById('paymentFilter').value.toLowerCase();
             const rows = document.querySelectorAll('tbody tr');
@@ -388,8 +379,24 @@ $orders = $db->db_fetch_all("SELECT o.*, u.first_name, u.last_name, u.email
                 const rowText = row.textContent.toLowerCase();
                 let showRow = true;
                 
-                if (status && !rowText.includes(status)) showRow = false;
-                if (payment && !rowText.includes(payment)) showRow = false;
+                // Search filter
+                if (searchTerm && !rowText.includes(searchTerm)) showRow = false;
+                
+                // Status filter - check status cell (6th column)
+                if (status) {
+                    const statusCell = row.querySelector('td:nth-child(6)');
+                    if (statusCell && !statusCell.textContent.toLowerCase().includes(status)) {
+                        showRow = false;
+                    }
+                }
+                
+                // Payment filter - check payment cell (5th column)
+                if (payment) {
+                    const paymentCell = row.querySelector('td:nth-child(5)');
+                    if (paymentCell && !paymentCell.textContent.toLowerCase().includes(payment)) {
+                        showRow = false;
+                    }
+                }
                 
                 row.style.display = showRow ? '' : 'none';
             });

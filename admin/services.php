@@ -22,11 +22,16 @@ $service = new Service();
 $cart = new Cart();
 $cart_count = 0;
 
+// Check if we should show inactive services (default: hide them)
+$show_inactive = isset($_GET['show_inactive']) && $_GET['show_inactive'] == '1';
+
 // Get all services with provider info
+$inactive_filter = $show_inactive ? "" : "WHERE s.is_active = 1";
 $services = $db->db_fetch_all("SELECT s.*, u.first_name, u.last_name, u.email,
                    (SELECT COUNT(*) FROM order_items oi WHERE oi.service_id = s.service_id) as total_orders
                    FROM services s 
                    LEFT JOIN users u ON s.provider_id = u.user_id 
+                   $inactive_filter
                    ORDER BY s.date_created DESC");
 
 // Get service stats
@@ -134,12 +139,13 @@ if (!$stats) {
                             <i class="fas fa-search absolute left-3.5 top-3.5 text-gray-400"></i>
                         </div>
                     </div>
-                    <div class="flex gap-3">
-                        <select id="statusFilter" class="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-primary">
-                            <option value="">All Status</option>
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                        </select>
+                    <div class="flex gap-3 items-center">
+                        <!-- Toggle deleted services -->
+                        <a href="?show_inactive=<?php echo $show_inactive ? '0' : '1'; ?>" 
+                           class="px-4 py-2.5 rounded-lg border transition-all <?php echo $show_inactive ? 'bg-red-50 border-red-300 text-red-700' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'; ?>">
+                            <i class="fas fa-<?php echo $show_inactive ? 'eye-slash' : 'eye'; ?> mr-2"></i>
+                            <?php echo $show_inactive ? 'Hide Deleted' : 'Show Deleted'; ?>
+                        </a>
                         <select id="categoryFilter" class="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-primary">
                             <option value="">All Categories</option>
                             <option value="mentorship">Mentorship</option>
@@ -282,22 +288,11 @@ if (!$stats) {
 
     <script>
         // Search functionality
-        document.getElementById('searchServices').addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            const rows = document.querySelectorAll('tbody tr');
-            
-            rows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(searchTerm) ? '' : 'none';
-            });
-        });
-
-        // Status filter
-        document.getElementById('statusFilter').addEventListener('change', filterTable);
+        document.getElementById('searchServices').addEventListener('input', filterTable);
         document.getElementById('categoryFilter').addEventListener('change', filterTable);
 
         function filterTable() {
-            const status = document.getElementById('statusFilter').value.toLowerCase();
+            const searchTerm = document.getElementById('searchServices').value.toLowerCase();
             const category = document.getElementById('categoryFilter').value.toLowerCase();
             const rows = document.querySelectorAll('tbody tr');
             
@@ -305,8 +300,16 @@ if (!$stats) {
                 const rowText = row.textContent.toLowerCase();
                 let showRow = true;
                 
-                if (status && !rowText.includes(status)) showRow = false;
-                if (category && !rowText.includes(category)) showRow = false;
+                // Search filter
+                if (searchTerm && !rowText.includes(searchTerm)) showRow = false;
+                
+                // Category filter - check the category cell specifically
+                if (category) {
+                    const categoryCell = row.querySelector('td:nth-child(3)');
+                    if (categoryCell && !categoryCell.textContent.toLowerCase().includes(category)) {
+                        showRow = false;
+                    }
+                }
                 
                 row.style.display = showRow ? '' : 'none';
             });
