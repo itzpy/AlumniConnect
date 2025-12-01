@@ -18,6 +18,7 @@ $cart_count = $cart->getCartCount($user_id);
 
 $connection = new Connection();
 $db = new db_connection();
+$db->db_connect(); // Establish database connection
 
 // Get filter parameters from URL
 $filter_name = isset($_GET['name']) ? trim($_GET['name']) : '';
