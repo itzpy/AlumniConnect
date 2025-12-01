@@ -63,7 +63,7 @@ class Recommendation extends db_connection {
                 JOIN orders o ON oi.order_id = o.order_id
                 JOIN services s ON oi.service_id = s.service_id
                 WHERE o.user_id = $user_id AND o.payment_status = 'paid'
-                ORDER BY o.order_date DESC
+                ORDER BY o.date_created DESC
                 LIMIT 50";
         
         $purchases = $this->db_fetch_all($sql);
