@@ -25,7 +25,7 @@ $cart_count = 0;
 $monthly_revenue = $db->db_fetch_all("
     SELECT 
         DATE_FORMAT(date_created, '%Y-%m') as month,
-        DATE_FORMAT(date_created, '%b %Y') as month_name,
+        DATE_FORMAT(MIN(date_created), '%b %Y') as month_name,
         COUNT(*) as order_count,
         COALESCE(SUM(final_amount), 0) as revenue
     FROM orders 
@@ -69,7 +69,7 @@ $top_services = $db->db_fetch_all("
 $user_registrations = $db->db_fetch_all("
     SELECT 
         DATE_FORMAT(date_created, '%Y-%m') as month,
-        DATE_FORMAT(date_created, '%b %Y') as month_name,
+        DATE_FORMAT(MIN(date_created), '%b %Y') as month_name,
         COUNT(*) as count,
         SUM(CASE WHEN user_role = 'student' THEN 1 ELSE 0 END) as students,
         SUM(CASE WHEN user_role = 'alumni' THEN 1 ELSE 0 END) as alumni
