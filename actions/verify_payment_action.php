@@ -7,6 +7,9 @@
 session_start();
 header('Content-Type: application/json');
 
+// Include Paystack config for API keys
+require_once '../settings/paystack_config.php';
+
 if (!isset($_SESSION['user_id'])) {
     echo json_encode(['success' => false, 'message' => 'Please log in first']);
     exit();
@@ -36,7 +39,7 @@ curl_setopt_array($curl, array(
     CURLOPT_URL => "https://api.paystack.co/transaction/verify/" . rawurlencode($reference),
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HTTPHEADER => [
-        "Authorization: Bearer sk_test_1a36a80adbbd3e6805714561faa5cbeae4f807dc", // Replace with your Paystack secret key
+        "Authorization: Bearer " . PAYSTACK_SECRET_KEY,
         "Cache-Control: no-cache",
     ],
 ));

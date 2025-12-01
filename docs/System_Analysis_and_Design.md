@@ -1,9 +1,23 @@
-# Alumni Connect Platform - System Analysis & Design Document
+---
+
+# SUBMISSION FORM
+
+| Field | Details |
+|-------|---------|
+| **Student ID Number** | |
+| **Course** | CS442 – Electronic Commerce |
+| **Project Title** | Alumni Connect - University Services Marketplace |
+| **Submission Date and Time** | November 30, 2025 |
+
+---
+
+# Alumni Connect Platform
+## System Analysis & Design Document
 
 **Project:** Alumni Connect E-Commerce Platform  
 **Course:** CS442 E-Commerce  
-**Date:** November 2025  
-**Version:** 1.0
+**Submission Date:** November 30, 2025  
+**Version:** 2.0
 
 ---
 
@@ -31,6 +45,13 @@ Alumni Connect is a comprehensive e-commerce platform designed to facilitate con
 - Secure checkout with Paystack payment integration
 - Order tracking and invoice generation
 - User authentication and role-based access
+- Community feed with posts, likes, and comments
+- Alumni-student networking and connections
+- Direct messaging system
+- Job opportunities board
+- AI-powered service recommendations
+- Subscription plans and coupon system
+- Real-time notifications
 
 ---
 
@@ -391,12 +412,14 @@ Alternative Flows:
 │  └─────────────────────────────────────────────────────┘      │
 │                              │                                  │
 │  ┌─────────────────────────────────────────────────────┐      │
-│  │                  Classes                             │      │
-│  │  • service_class.php (422 lines)                    │      │
-│  │  • cart_class.php (258 lines)                       │      │
-│  │  • order_class.php (390 lines)                      │      │
-│  │  • payment_class.php (63 lines)                     │      │
-│  │  • customer_class.php                               │      │
+│  │                  Classes (15 total)                  │      │
+│  │  • service_class.php        • cart_class.php        │      │
+│  │  • order_class.php          • payment_class.php     │      │
+│  │  • user_class.php           • alumni_class.php      │      │
+│  │  • student_class.php        • post_class.php        │      │
+│  │  • connection_class.php     • message_class.php     │      │
+│  │  • job_class.php            • subscription_class.php│      │
+│  │  • coupon_class.php         • recommendation_class.php│    │
 │  └─────────────────────────────────────────────────────┘      │
 │                              │                                  │
 │  ┌─────────────────────────────────────────────────────┐      │
@@ -418,18 +441,28 @@ Alternative Flows:
 │  ┌─────────────────────────────────────────────────────┐      │
 │  │            Database: alumni_connect                  │      │
 │  │                                                      │      │
-│  │  Core Tables (13):                                   │      │
-│  │  • users, students, alumni                          │      │
-│  │  • categories, brands, products                     │      │
-│  │  • cart, orders, order_details, payment             │      │
+│  │  User Tables (4):                                    │      │
+│  │  • users, alumni_profiles, student_profiles         │      │
+│  │  • password_resets                                  │      │
 │  │                                                      │      │
-│  │  E-Commerce Tables (6):                              │      │
-│  │  • services (14 sample services)                    │      │
-│  │  • cart (shopping cart)                             │      │
-│  │  • orders (order records)                           │      │
-│  │  • order_items (order line items)                   │      │
-│  │  • payments (transaction records)                   │      │
-│  │  • invoices (generated invoices)                    │      │
+│  │  E-Commerce Tables (7):                              │      │
+│  │  • services (15 services)                           │      │
+│  │  • cart, orders, order_items                        │      │
+│  │  • payments, invoices                               │      │
+│  │  • coupons, coupon_usage                            │      │
+│  │                                                      │      │
+│  │  Social/Networking Tables (8):                       │      │
+│  │  • posts, post_likes, post_comments                 │      │
+│  │  • connections, messages, notifications             │      │
+│  │  • job_opportunities, events, event_registrations   │      │
+│  │  • mentorships                                      │      │
+│  │                                                      │      │
+│  │  Subscription Tables (3):                            │      │
+│  │  • subscription_plans, subscriptions                │      │
+│  │  • subscription_usage                               │      │
+│  └─────────────────────────────────────────────────────┘      │
+│                                                                 │
+│  │  Total: 25 tables                                    │      │
 │  └─────────────────────────────────────────────────────┘      │
 │                                                                 │
 │  Technologies: MySQL 5.7+/8.0, InnoDB Engine, ACID Support    │
@@ -715,7 +748,7 @@ User        Orders Page      Order Class      Database
 │  │  │  • Database: alumni_connect                      │  │ │
 │  │  │  • User: root (no password - dev only)           │  │ │
 │  │  │  • Character Set: utf8mb4                        │  │ │
-│  │  │  • 19 tables (13 core + 6 e-commerce)            │  │ │
+│  │  │  • 25 tables (user, e-commerce, social, subs)    │  │ │
 │  │  └──────────────────────────────────────────────────┘  │ │
 │  │                                                          │ │
 │  └─────────────────────────────────────────────────────────┘ │
@@ -780,15 +813,21 @@ AlumniConnect/
 │   ├── login_action.php
 │   └── register_action.php
 │
-├── classes/                       # Business logic classes
-│   ├── service_class.php         # 422 lines
-│   ├── cart_class.php            # 258 lines
-│   ├── order_class.php           # 390 lines
-│   ├── payment_class.php         # 63 lines
-│   ├── customer_class.php
-│   ├── product_class.php
-│   ├── category_class.php
-│   └── brand_class.php
+├── classes/                       # Business logic classes (15 files)
+│   ├── service_class.php         # Service/product management
+│   ├── cart_class.php            # Shopping cart operations
+│   ├── order_class.php           # Order processing
+│   ├── payment_class.php         # Payment handling
+│   ├── user_class.php            # User authentication
+│   ├── alumni_class.php          # Alumni profiles
+│   ├── student_class.php         # Student profiles
+│   ├── post_class.php            # Community posts/feed
+│   ├── connection_class.php      # User connections/networking
+│   ├── message_class.php         # Direct messaging
+│   ├── job_class.php             # Job opportunities
+│   ├── subscription_class.php    # Subscription plans
+│   ├── coupon_class.php          # Discount coupons
+│   └── recommendation_class.php  # AI-powered recommendations
 │
 ├── controllers/                   # MVC controllers
 │   ├── product_controller.php
@@ -882,8 +921,8 @@ AlumniConnect/
 | Engine | InnoDB |
 | Character Set | utf8mb4 |
 | Collation | utf8mb4_unicode_ci |
-| Tables | 19 total (13 core + 6 e-commerce) |
-| Sample Data | 14 services, 4 orders, 3 payments |
+| Tables | 25 total (4 user + 7 e-commerce + 8 social + 3 subscription + 3 misc) |
+| Sample Data | 15 services, sample users, posts |
 
 ### 9.4 Third-Party Services
 
@@ -947,26 +986,43 @@ AlumniConnect/
 
 ---
 
-## 12. Future Enhancements
+## 12. Implemented Advanced Features
 
-1. **Real-time Features**
-   - WebSocket integration for live notifications
-   - Real-time chat between alumni and students
+1. **Social Networking (Implemented ✅)**
+   - Community feed with posts, likes, comments
+   - User connections and networking
+   - Direct messaging system
+   - Real-time notifications
+
+2. **AI-Powered Recommendations (Implemented ✅)**
+   - Personalized service recommendations
+   - Based on purchase history and user behavior
+   - Collaborative filtering algorithms
+
+3. **Subscription System (Implemented ✅)**
+   - Multiple subscription tiers
+   - Usage tracking and limits
+   - Coupon/discount system
+
+4. **Job Board (Implemented ✅)**
+   - Job opportunity listings
+   - Application tracking
+   - Alumni-posted opportunities
+
+## 13. Future Enhancements
+
+1. **Mobile Application**
+   - Native iOS/Android apps
+   - React Native implementation
 
 2. **Advanced Analytics**
    - Sales dashboard
    - User behavior tracking
    - Revenue reports
 
-3. **Mobile Application**
-   - Native iOS/Android apps
-   - React Native implementation
-
-4. **Enhanced Features**
-   - Service reviews and ratings
-   - Recommendation engine
-   - Loyalty program
-   - Subscription services
+3. **Video Conferencing**
+   - Built-in mentorship video calls
+   - Calendar integration
 
 ---
 
@@ -975,17 +1031,20 @@ AlumniConnect/
 The Alumni Connect platform successfully implements a comprehensive e-commerce system that meets all CS442 course requirements. The system demonstrates:
 
 - ✅ **Complete MVC Architecture** - Separation of concerns
-- ✅ **Professional Database Design** - Normalized schema with 19 tables
+- ✅ **Professional Database Design** - Normalized schema with 25 tables
 - ✅ **Secure Payment Integration** - Paystack for Ghana market
-- ✅ **Responsive Design** - Mobile-first approach
+- ✅ **Responsive Design** - Mobile-first approach with Tailwind CSS
 - ✅ **Production-Ready Code** - Comprehensive documentation
 - ✅ **Scalable Architecture** - Ready for growth
+- ✅ **AI Recommendations** - Personalized service suggestions
+- ✅ **Social Features** - Posts, connections, messaging
+- ✅ **Subscription System** - Tiered plans with usage tracking
 
 The platform is ready for deployment and provides a solid foundation for connecting alumni with students while generating sustainable revenue through service offerings.
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** November 25, 2025  
+**Document Version:** 2.0  
+**Last Updated:** November 30, 2025  
 **Author:** Alumni Connect Development Team  
 **Status:** Final for Submission

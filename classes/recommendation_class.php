@@ -144,7 +144,7 @@ class Recommendation extends db_connection {
                  JOIN orders o2 ON oi2.order_id = o2.order_id 
                  WHERE oi2.service_id = s.service_id AND o2.payment_status = 'paid') as purchase_count
                 FROM services s 
-                WHERE s.status = 'active' 
+                WHERE s.is_active = 1 
                 $exclude_clause 
                 $exclude_purchased
                 ORDER BY purchase_count DESC";
@@ -295,7 +295,7 @@ class Recommendation extends db_connection {
                  WHERE oi.service_id = s.service_id AND o.payment_status = 'paid') as purchase_count,
                 (SELECT COUNT(*) FROM cart c WHERE c.service_id = s.service_id) as cart_count
                 FROM services s 
-                WHERE s.status = 'active' $exclude_clause
+                WHERE s.is_active = 1 $exclude_clause
                 ORDER BY (purchase_count * 2 + cart_count) DESC, s.date_created DESC
                 LIMIT $limit";
         
@@ -344,7 +344,7 @@ class Recommendation extends db_connection {
                          WHERE oi.service_id = s.service_id AND o.payment_status = 'paid') as purchase_count
                         FROM services s 
                         WHERE s.service_id != $service_id 
-                        AND s.status = 'active'
+                        AND s.is_active = 1
                         AND (s.service_type = '$type' OR s.price BETWEEN $price_min AND $price_max)
                         ORDER BY 
                             CASE WHEN s.service_type = '$type' THEN 0 ELSE 1 END,
@@ -387,7 +387,7 @@ class Recommendation extends db_connection {
                 JOIN orders o ON oi.order_id = o.order_id
                 WHERE o.payment_status = 'paid'
                 AND s.service_id NOT IN ($cart_ids_str)
-                AND s.status = 'active'
+                AND s.is_active = 1
                 AND o.order_id IN (
                     SELECT DISTINCT o2.order_id 
                     FROM orders o2 

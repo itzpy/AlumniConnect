@@ -37,16 +37,10 @@ function delete_post_ctr($post_id, $user_id) {
     return $post->delete_post($post_id, $user_id);
 }
 
-// Like post
-function like_post_ctr($post_id, $user_id, $user_type) {
+// Like/Unlike post (toggle)
+function like_post_ctr($post_id, $user_id) {
     $post = new Post();
-    return $post->like_post($post_id, $user_id, $user_type);
-}
-
-// Unlike post
-function unlike_post_ctr($post_id, $user_id) {
-    $post = new Post();
-    return $post->unlike_post($post_id, $user_id);
+    return $post->like_post($post_id, $user_id);
 }
 
 // Check if liked

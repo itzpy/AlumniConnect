@@ -173,13 +173,35 @@ $user_type = isset($_GET['user_type']) ? htmlspecialchars($_GET['user_type']) : 
                             <select id="industry" name="industry"
                                 class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-primary transition-colors bg-white">
                                 <option value="">Select Industry</option>
-                                <option value="Technology">Technology</option>
-                                <option value="Finance">Finance</option>
-                                <option value="Healthcare">Healthcare</option>
-                                <option value="Education">Education</option>
+                                <option value="Technology">Technology / Software</option>
+                                <option value="Finance">Finance / Banking</option>
+                                <option value="Investment Banking">Investment Banking</option>
+                                <option value="Fintech">Fintech</option>
+                                <option value="Healthcare">Healthcare / Medical</option>
+                                <option value="Pharmaceutical">Pharmaceutical</option>
+                                <option value="Education">Education / Academia</option>
                                 <option value="Engineering">Engineering</option>
-                                <option value="Marketing">Marketing</option>
+                                <option value="Manufacturing">Manufacturing</option>
+                                <option value="Energy">Energy / Oil & Gas</option>
+                                <option value="Renewable Energy">Renewable Energy</option>
+                                <option value="Marketing">Marketing / Advertising</option>
+                                <option value="Media">Media / Entertainment</option>
                                 <option value="Consulting">Consulting</option>
+                                <option value="Management Consulting">Management Consulting</option>
+                                <option value="Legal">Legal / Law</option>
+                                <option value="Real Estate">Real Estate</option>
+                                <option value="Retail">Retail / E-commerce</option>
+                                <option value="Hospitality">Hospitality / Tourism</option>
+                                <option value="Agriculture">Agriculture / Agribusiness</option>
+                                <option value="Telecommunications">Telecommunications</option>
+                                <option value="Government">Government / Public Sector</option>
+                                <option value="Non-profit">Non-profit / NGO</option>
+                                <option value="Entrepreneurship">Entrepreneurship / Startup</option>
+                                <option value="Research">Research / Development</option>
+                                <option value="Supply Chain">Supply Chain / Logistics</option>
+                                <option value="Human Resources">Human Resources</option>
+                                <option value="Data Science">Data Science / Analytics</option>
+                                <option value="Cybersecurity">Cybersecurity</option>
                                 <option value="Other">Other</option>
                             </select>
                         </div>
@@ -271,12 +293,15 @@ $user_type = isset($_GET['user_type']) ? htmlspecialchars($_GET['user_type']) : 
                 this.classList.remove('border-gray-300');
                 document.getElementById('userType').value = this.dataset.type;
                 
-                // Show/hide alumni fields
+                // Show/hide alumni and student fields
                 const alumniFields = document.getElementById('alumniFields');
+                const studentFields = document.getElementById('studentFields');
                 if (this.dataset.type === 'alumni') {
                     alumniFields.style.display = 'block';
+                    studentFields.style.display = 'none';
                 } else {
                     alumniFields.style.display = 'none';
+                    studentFields.style.display = 'block';
                 }
             });
         });

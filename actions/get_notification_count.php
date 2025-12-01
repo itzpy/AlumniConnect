@@ -11,7 +11,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-$user_id = $_SESSION['user_id'];
+$user_id = intval($_SESSION['user_id']);
 
 // Include database connection
 require_once("../settings/db_class.php");
@@ -25,13 +25,12 @@ try {
         exit();
     }
     
-    // For now, return sample count
-    // In the future, this would query a notifications table
-    // Example: SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0
-    
-    // Simulate dynamic count based on user activity
-    // You can replace this with actual database query when notifications table is created
-    $count = 3; // Default sample count
+    // Count unread notifications from the notifications table
+    $stmt = $conn->prepare("SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result()->fetch_assoc();
+    $count = intval($result['count']);
     
     echo json_encode([
         'success' => true,

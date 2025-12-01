@@ -12,8 +12,48 @@ $user_id = $_SESSION['user_id'] ?? 0;
 
 // Get cart count for navbar
 require_once(dirname(__FILE__).'/../classes/cart_class.php');
+require_once(dirname(__FILE__).'/../classes/connection_class.php');
+require_once(dirname(__FILE__).'/../classes/post_class.php');
+require_once(dirname(__FILE__).'/../settings/db_class.php');
+
 $cart = new Cart();
 $cart_count = $cart->getCartCount($user_id);
+
+// Get posts for feed
+$post = new Post();
+$posts = $post->get_all_posts(10, 0);
+if ($posts === false) {
+    $posts = [];
+}
+
+// Get pending connection requests
+$connection = new Connection();
+$pending_requests = $connection->getPendingRequests($user_id);
+
+// Get suggested connections (users not connected with)
+$db = new db_connection();
+$suggested_users = $db->db_fetch_all("
+    SELECT u.user_id, u.first_name, u.last_name, u.profile_image, u.user_role
+    FROM users u
+    WHERE u.user_id != $user_id 
+    AND u.is_active = 1
+    AND u.user_id NOT IN (
+        SELECT CASE WHEN requester_id = $user_id THEN receiver_id ELSE requester_id END
+        FROM connections 
+        WHERE requester_id = $user_id OR receiver_id = $user_id
+    )
+    ORDER BY RAND()
+    LIMIT 5
+");
+
+// Get upcoming events from services
+$upcoming_events = $db->db_fetch_all("
+    SELECT service_id, service_name, description, price, date_created
+    FROM services 
+    WHERE service_type = 'event' AND is_active = 1
+    ORDER BY date_created DESC
+    LIMIT 3
+");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -309,80 +349,126 @@ $cart_count = $cart->getCartCount($user_id);
                                      alt="Profile" class="w-10 h-10 rounded-full">
                                 <input type="text" placeholder="Share an update..." 
                                        class="flex-1 px-4 py-3 bg-gray-50 rounded-lg border border-gray-200 focus:outline-none focus:border-primary transition-colors cursor-pointer"
-                                       onclick="alert('Post creation modal would open here')">
+                                       onclick="openPostModal()" readonly id="post-trigger">
+                            </div>
+                            <div class="flex items-center space-x-4 mt-3 ml-13 pl-10">
+                                <button onclick="openPostModal('general')" class="flex items-center space-x-2 text-gray-500 hover:text-primary transition-colors text-sm">
+                                    <i class="far fa-edit"></i>
+                                    <span>Post</span>
+                                </button>
+                                <button onclick="openPostModal('job')" class="flex items-center space-x-2 text-gray-500 hover:text-blue-600 transition-colors text-sm">
+                                    <i class="fas fa-briefcase"></i>
+                                    <span>Job</span>
+                                </button>
+                                <button onclick="openPostModal('event')" class="flex items-center space-x-2 text-gray-500 hover:text-green-600 transition-colors text-sm">
+                                    <i class="far fa-calendar-alt"></i>
+                                    <span>Event</span>
+                                </button>
                             </div>
                         </div>
 
-                        <!-- Post Item -->
-                        <div class="space-y-6">
-                            <div class="pb-6 border-b border-gray-200">
-                                <div class="flex items-start space-x-3 mb-4">
-                                    <img src="https://ui-avatars.com/api/?name=Sarah+Johnson&background=2563eb&color=fff" 
-                                         alt="Sarah Johnson" class="w-12 h-12 rounded-full">
-                                    <div class="flex-1">
-                                        <div class="flex items-center justify-between">
-                                            <div>
-                                                <h4 class="font-semibold text-gray-900">Sarah Johnson</h4>
-                                                <p class="text-sm text-gray-500">Software Engineer at Google • Class of 2018</p>
+                        <!-- Posts Container -->
+                        <div class="space-y-6" id="posts-container">
+                            <?php if (empty($posts)): ?>
+                                <div class="text-center py-8 text-gray-500">
+                                    <i class="far fa-newspaper text-4xl mb-3"></i>
+                                    <p>No posts yet. Be the first to share something!</p>
+                                </div>
+                            <?php else: ?>
+                                <?php foreach ($posts as $p): 
+                                    $author_name = htmlspecialchars($p['first_name'] . ' ' . $p['last_name']);
+                                    $author_role = ucfirst($p['user_role'] ?? 'Member');
+                                    $post_date = new DateTime($p['date_created']);
+                                    $now = new DateTime();
+                                    $diff = $post_date->diff($now);
+                                    
+                                    // Format time ago
+                                    if ($diff->d > 0) {
+                                        $time_ago = $diff->d . 'd ago';
+                                    } elseif ($diff->h > 0) {
+                                        $time_ago = $diff->h . 'h ago';
+                                    } elseif ($diff->i > 0) {
+                                        $time_ago = $diff->i . 'm ago';
+                                    } else {
+                                        $time_ago = 'Just now';
+                                    }
+                                    
+                                    // Check if user has liked this post
+                                    $has_liked = $post->has_liked($p['post_id'], $user_id);
+                                    
+                                    // Random color for avatar
+                                    $colors = ['7A1E1E', '2563eb', '059669', '7c3aed', 'dc2626', 'ea580c'];
+                                    $color = $colors[array_rand($colors)];
+                                ?>
+                                <div class="pb-6 border-b border-gray-200 post-item" data-post-id="<?php echo $p['post_id']; ?>">
+                                    <div class="flex items-start space-x-3 mb-4">
+                                        <?php if (!empty($p['profile_image'])): ?>
+                                            <img src="../uploads/profiles/<?php echo htmlspecialchars($p['profile_image']); ?>" 
+                                                 alt="<?php echo $author_name; ?>" class="w-12 h-12 rounded-full object-cover">
+                                        <?php else: ?>
+                                            <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($author_name); ?>&background=<?php echo $color; ?>&color=fff" 
+                                                 alt="<?php echo $author_name; ?>" class="w-12 h-12 rounded-full">
+                                        <?php endif; ?>
+                                        <div class="flex-1">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <h4 class="font-semibold text-gray-900"><?php echo $author_name; ?></h4>
+                                                    <p class="text-sm text-gray-500"><?php echo $author_role; ?></p>
+                                                </div>
+                                                <div class="flex items-center space-x-2">
+                                                    <?php if ($p['post_type'] !== 'general'): ?>
+                                                        <span class="px-2 py-1 text-xs rounded-full 
+                                                            <?php echo $p['post_type'] === 'job' ? 'bg-blue-100 text-blue-700' : 
+                                                                ($p['post_type'] === 'event' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'); ?>">
+                                                            <?php echo ucfirst($p['post_type']); ?>
+                                                        </span>
+                                                    <?php endif; ?>
+                                                    <span class="text-sm text-gray-400"><?php echo $time_ago; ?></span>
+                                                </div>
                                             </div>
-                                            <span class="text-sm text-gray-400">2h ago</span>
-                                        </div>
-                                        <p class="mt-3 text-gray-700 leading-relaxed">
-                                            Excited to announce that I'll be speaking at our upcoming alumni tech conference! 
-                                            Looking forward to connecting with fellow graduates. 🎉
-                                        </p>
-                                        <div class="flex items-center space-x-6 mt-4 text-sm">
-                                            <button class="flex items-center space-x-2 text-gray-500 hover:text-primary transition-colors">
-                                                <i class="far fa-thumbs-up"></i>
-                                                <span>24 Likes</span>
-                                            </button>
-                                            <button class="flex items-center space-x-2 text-gray-500 hover:text-primary transition-colors">
-                                                <i class="far fa-comment"></i>
-                                                <span>5 Comments</span>
-                                            </button>
-                                            <button class="flex items-center space-x-2 text-gray-500 hover:text-primary transition-colors">
-                                                <i class="far fa-share-square"></i>
-                                                <span>Share</span>
-                                            </button>
+                                            <?php if (!empty($p['post_title'])): ?>
+                                                <h5 class="mt-2 font-semibold text-gray-900"><?php echo htmlspecialchars($p['post_title']); ?></h5>
+                                            <?php endif; ?>
+                                            <p class="mt-2 text-gray-700 leading-relaxed"><?php echo nl2br(htmlspecialchars($p['post_content'])); ?></p>
+                                            
+                                            <?php if (!empty($p['image_url'])): ?>
+                                                <div class="mt-3">
+                                                    <img src="../uploads/posts/<?php echo htmlspecialchars($p['image_url']); ?>" 
+                                                         alt="Post image" class="rounded-lg max-h-96 object-cover w-full">
+                                                </div>
+                                            <?php endif; ?>
+                                            
+                                            <div class="flex items-center space-x-6 mt-4 text-sm">
+                                                <button onclick="toggleLike(<?php echo $p['post_id']; ?>, this)" 
+                                                        class="flex items-center space-x-2 transition-colors like-btn <?php echo $has_liked ? 'text-primary' : 'text-gray-500 hover:text-primary'; ?>">
+                                                    <i class="<?php echo $has_liked ? 'fas' : 'far'; ?> fa-thumbs-up"></i>
+                                                    <span class="like-count"><?php echo $p['likes_count'] ?? 0; ?> Likes</span>
+                                                </button>
+                                                <button onclick="toggleComments(<?php echo $p['post_id']; ?>)" 
+                                                        class="flex items-center space-x-2 text-gray-500 hover:text-primary transition-colors">
+                                                    <i class="far fa-comment"></i>
+                                                    <span><?php echo $p['comments_count'] ?? 0; ?> Comments</span>
+                                                </button>
+                                                <button class="flex items-center space-x-2 text-gray-500 hover:text-primary transition-colors">
+                                                    <i class="far fa-share-square"></i>
+                                                    <span>Share</span>
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-
-                            <div class="pb-6 border-b border-gray-200">
-                                <div class="flex items-start space-x-3 mb-4">
-                                    <img src="https://ui-avatars.com/api/?name=Michael+Chen&background=059669&color=fff" 
-                                         alt="Michael Chen" class="w-12 h-12 rounded-full">
-                                    <div class="flex-1">
-                                        <div class="flex items-center justify-between">
-                                            <div>
-                                                <h4 class="font-semibold text-gray-900">Michael Chen</h4>
-                                                <p class="text-sm text-gray-500">Product Manager at Microsoft • Class of 2016</p>
-                                            </div>
-                                            <span class="text-sm text-gray-400">5h ago</span>
-                                        </div>
-                                        <p class="mt-3 text-gray-700 leading-relaxed">
-                                            We're hiring! Looking for talented product designers to join our team. 
-                                            DM me if you're interested or know someone who might be a great fit.
-                                        </p>
-                                        <div class="flex items-center space-x-6 mt-4 text-sm">
-                                            <button class="flex items-center space-x-2 text-gray-500 hover:text-primary transition-colors">
-                                                <i class="far fa-thumbs-up"></i>
-                                                <span>42 Likes</span>
-                                            </button>
-                                            <button class="flex items-center space-x-2 text-gray-500 hover:text-primary transition-colors">
-                                                <i class="far fa-comment"></i>
-                                                <span>8 Comments</span>
-                                            </button>
-                                            <button class="flex items-center space-x-2 text-gray-500 hover:text-primary transition-colors">
-                                                <i class="far fa-share-square"></i>
-                                                <span>Share</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </div>
+                        
+                        <?php if (count($posts) >= 10): ?>
+                            <div class="mt-6 text-center">
+                                <button onclick="loadMorePosts()" id="load-more-btn" 
+                                        class="px-6 py-2 text-primary border border-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
+                                    Load More Posts
+                                </button>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -391,53 +477,74 @@ $cart_count = $cart->getCartCount($user_id);
                     <!-- Connection Requests -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                         <h3 class="text-lg font-bold text-gray-900 mb-4">Connection Requests</h3>
-                        <div class="space-y-4">
-                            <div class="flex items-center space-x-3">
-                                <img src="https://ui-avatars.com/api/?name=Emma+Davis&background=dc2626&color=fff" 
-                                     alt="Emma Davis" class="w-10 h-10 rounded-full">
-                                <div class="flex-1 min-w-0">
-                                    <h4 class="font-semibold text-gray-900 text-sm truncate">Emma Davis</h4>
-                                    <p class="text-xs text-gray-500 truncate">Marketing Manager</p>
+                        <?php if (empty($pending_requests)): ?>
+                            <p class="text-sm text-gray-500 text-center py-4">No pending requests</p>
+                        <?php else: ?>
+                            <div class="space-y-4">
+                                <?php foreach (array_slice($pending_requests, 0, 3) as $request): 
+                                    $req_name = htmlspecialchars($request['first_name'] . ' ' . $request['last_name']);
+                                    $req_initials = strtoupper(substr($request['first_name'], 0, 1) . substr($request['last_name'], 0, 1));
+                                ?>
+                                <div class="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
+                                    <div class="flex items-center space-x-3 mb-2">
+                                        <?php if (!empty($request['profile_image'])): ?>
+                                            <img src="../uploads/profiles/<?php echo htmlspecialchars($request['profile_image']); ?>" 
+                                                 alt="<?php echo $req_name; ?>" class="w-10 h-10 rounded-full object-cover">
+                                        <?php else: ?>
+                                            <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold">
+                                                <?php echo $req_initials; ?>
+                                            </div>
+                                        <?php endif; ?>
+                                        <div class="flex-1 min-w-0">
+                                            <h4 class="font-semibold text-gray-900 text-sm truncate"><?php echo $req_name; ?></h4>
+                                            <p class="text-xs text-gray-500 truncate"><?php echo ucfirst($request['user_role'] ?? 'Member'); ?></p>
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button onclick="handleConnectionRequest(<?php echo $request['connection_id']; ?>, 'accept')" 
+                                                class="flex-1 px-3 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-dark transition-colors">
+                                            Accept
+                                        </button>
+                                        <button onclick="handleConnectionRequest(<?php echo $request['connection_id']; ?>, 'reject')" 
+                                                class="flex-1 px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors">
+                                            Decline
+                                        </button>
+                                    </div>
                                 </div>
+                                <?php endforeach; ?>
                             </div>
-                            <div class="flex space-x-2">
-                                <button class="flex-1 px-3 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-dark transition-colors">
-                                    Accept
-                                </button>
-                                <button class="flex-1 px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors">
-                                    Decline
-                                </button>
-                            </div>
-                        </div>
+                            <?php if (count($pending_requests) > 3): ?>
+                                <a href="connections.php" class="block mt-4 text-center text-sm text-primary hover:text-primary-dark font-medium">
+                                    View All (<?php echo count($pending_requests); ?>) →
+                                </a>
+                            <?php endif; ?>
+                        <?php endif; ?>
                     </div>
 
                     <!-- Upcoming Events -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                         <h3 class="text-lg font-bold text-gray-900 mb-4">Upcoming Events</h3>
-                        <div class="space-y-4">
-                            <div class="flex space-x-3">
-                                <div class="bg-primary text-white p-2 rounded-lg text-center flex-shrink-0" style="width: 50px; height: 50px;">
-                                    <div class="text-xs font-medium">DEC</div>
-                                    <div class="text-lg font-bold">15</div>
+                        <?php if (empty($upcoming_events)): ?>
+                            <p class="text-sm text-gray-500 text-center py-4">No upcoming events</p>
+                        <?php else: ?>
+                            <div class="space-y-4">
+                                <?php foreach ($upcoming_events as $event): 
+                                    $event_date = new DateTime($event['date_created']);
+                                ?>
+                                <div class="flex space-x-3">
+                                    <div class="bg-primary text-white p-2 rounded-lg text-center flex-shrink-0" style="width: 50px; height: 50px;">
+                                        <div class="text-xs font-medium"><?php echo $event_date->format('M'); ?></div>
+                                        <div class="text-lg font-bold"><?php echo $event_date->format('d'); ?></div>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <h4 class="font-semibold text-gray-900 text-sm"><?php echo htmlspecialchars($event['service_name']); ?></h4>
+                                        <p class="text-xs text-gray-500">GHS <?php echo number_format($event['price'], 2); ?></p>
+                                    </div>
                                 </div>
-                                <div class="flex-1 min-w-0">
-                                    <h4 class="font-semibold text-gray-900 text-sm">Alumni Networking Night</h4>
-                                    <p class="text-xs text-gray-500">6:00 PM - Virtual Event</p>
-                                </div>
+                                <?php endforeach; ?>
                             </div>
-
-                            <div class="flex space-x-3">
-                                <div class="bg-primary text-white p-2 rounded-lg text-center flex-shrink-0" style="width: 50px; height: 50px;">
-                                    <div class="text-xs font-medium">DEC</div>
-                                    <div class="text-lg font-bold">20</div>
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <h4 class="font-semibold text-gray-900 text-sm">Career Fair 2025</h4>
-                                    <p class="text-xs text-gray-500">10:00 AM - Campus Center</p>
-                                </div>
-                            </div>
-                        </div>
-                        <a href="events.php" class="block mt-4 text-center text-sm text-primary hover:text-primary-dark font-medium">
+                        <?php endif; ?>
+                        <a href="services.php?type=event" class="block mt-4 text-center text-sm text-primary hover:text-primary-dark font-medium">
                             View All Events →
                         </a>
                     </div>
@@ -445,31 +552,38 @@ $cart_count = $cart->getCartCount($user_id);
                     <!-- Suggested Connections -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                         <h3 class="text-lg font-bold text-gray-900 mb-4">People You May Know</h3>
-                        <div class="space-y-4">
-                            <div class="flex items-center space-x-3">
-                                <img src="https://ui-avatars.com/api/?name=Alex+Turner&background=8b5cf6&color=fff" 
-                                     alt="Alex Turner" class="w-10 h-10 rounded-full">
-                                <div class="flex-1 min-w-0">
-                                    <h4 class="font-semibold text-gray-900 text-sm truncate">Alex Turner</h4>
-                                    <p class="text-xs text-gray-500 truncate">15 mutual connections</p>
+                        <?php if (empty($suggested_users)): ?>
+                            <p class="text-sm text-gray-500 text-center py-4">No suggestions available</p>
+                        <?php else: ?>
+                            <div class="space-y-4">
+                                <?php foreach ($suggested_users as $sug_user): 
+                                    $sug_name = htmlspecialchars($sug_user['first_name'] . ' ' . $sug_user['last_name']);
+                                    $sug_initials = strtoupper(substr($sug_user['first_name'], 0, 1) . substr($sug_user['last_name'], 0, 1));
+                                ?>
+                                <div class="flex items-center space-x-3">
+                                    <?php if (!empty($sug_user['profile_image'])): ?>
+                                        <img src="../uploads/profiles/<?php echo htmlspecialchars($sug_user['profile_image']); ?>" 
+                                             alt="<?php echo $sug_name; ?>" class="w-10 h-10 rounded-full object-cover">
+                                    <?php else: ?>
+                                        <div class="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-white text-sm font-bold">
+                                            <?php echo $sug_initials; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                    <div class="flex-1 min-w-0">
+                                        <h4 class="font-semibold text-gray-900 text-sm truncate"><?php echo $sug_name; ?></h4>
+                                        <p class="text-xs text-gray-500 truncate"><?php echo ucfirst($sug_user['user_role'] ?? 'Member'); ?></p>
+                                    </div>
+                                    <button onclick="quickConnect(<?php echo $sug_user['user_id']; ?>)" 
+                                            class="px-3 py-1 text-xs bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors flex-shrink-0">
+                                        Connect
+                                    </button>
                                 </div>
-                                <button class="px-3 py-1 text-xs bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors flex-shrink-0">
-                                    Connect
-                                </button>
+                                <?php endforeach; ?>
                             </div>
-
-                            <div class="flex items-center space-x-3">
-                                <img src="https://ui-avatars.com/api/?name=Lisa+Wong&background=f59e0b&color=fff" 
-                                     alt="Lisa Wong" class="w-10 h-10 rounded-full">
-                                <div class="flex-1 min-w-0">
-                                    <h4 class="font-semibold text-gray-900 text-sm truncate">Lisa Wong</h4>
-                                    <p class="text-xs text-gray-500 truncate">8 mutual connections</p>
-                                </div>
-                                <button class="px-3 py-1 text-xs bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors flex-shrink-0">
-                                    Connect
-                                </button>
-                            </div>
-                        </div>
+                        <?php endif; ?>
+                        <a href="alumni_search.php" class="block mt-4 text-center text-sm text-primary hover:text-primary-dark font-medium">
+                            Find More People →
+                        </a>
                     </div>
                 </div>
             </div>
@@ -599,6 +713,412 @@ $cart_count = $cart->getCartCount($user_id);
                 </a>
             `;
         }
+
+        /**
+         * Handle connection request (accept/reject)
+         */
+        function handleConnectionRequest(connectionId, action) {
+            fetch('../actions/handle_connection_action.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    connection_id: connectionId,
+                    action: action
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(data.message || 'Action failed', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Action failed', 'error');
+            });
+        }
+
+        /**
+         * Quick connect with a user
+         */
+        function quickConnect(userId) {
+            fetch('../actions/send_connection_action.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    receiver_id: userId,
+                    message: ''
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Connection request sent!', 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(data.message || 'Failed to send request', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Failed to send request', 'error');
+            });
+        }
+
+        /**
+         * Show toast notification
+         */
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container') || createToastContainer();
+            const toast = document.createElement('div');
+            toast.className = `px-6 py-3 rounded-lg text-white font-medium shadow-lg ${type === 'success' ? 'bg-green-500' : 'bg-red-500'}`;
+            toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} mr-2"></i>${message}`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function createToastContainer() {
+            const container = document.createElement('div');
+            container.id = 'toast-container';
+            container.className = 'fixed bottom-4 right-4 z-50 space-y-2';
+            document.body.appendChild(container);
+            return container;
+        }
+
+        // ========== POST FUNCTIONS ==========
+        let currentPostPage = 1;
+        
+        /**
+         * Open post creation modal
+         */
+        function openPostModal(postType = 'general') {
+            document.getElementById('post-type').value = postType;
+            updatePostTypeLabel(postType);
+            document.getElementById('post-modal').classList.remove('hidden');
+            document.getElementById('post-content').focus();
+        }
+        
+        /**
+         * Close post modal
+         */
+        function closePostModal() {
+            document.getElementById('post-modal').classList.add('hidden');
+            document.getElementById('post-form').reset();
+            document.getElementById('image-preview').classList.add('hidden');
+            document.getElementById('image-preview').querySelector('img').src = '';
+        }
+        
+        /**
+         * Update post type label in modal
+         */
+        function updatePostTypeLabel(type) {
+            const labels = {
+                'general': { text: 'Share a Post', icon: 'fa-edit', color: 'text-gray-600' },
+                'job': { text: 'Share a Job Opportunity', icon: 'fa-briefcase', color: 'text-blue-600' },
+                'event': { text: 'Share an Event', icon: 'fa-calendar-alt', color: 'text-green-600' }
+            };
+            const label = labels[type] || labels['general'];
+            document.getElementById('post-type-label').innerHTML = `<i class="fas ${label.icon} mr-2 ${label.color}"></i>${label.text}`;
+        }
+        
+        /**
+         * Preview selected image
+         */
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('image-preview').classList.remove('hidden');
+                    document.getElementById('image-preview').querySelector('img').src = e.target.result;
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+        
+        /**
+         * Remove image preview
+         */
+        function removeImagePreview() {
+            document.getElementById('post-image').value = '';
+            document.getElementById('image-preview').classList.add('hidden');
+            document.getElementById('image-preview').querySelector('img').src = '';
+        }
+        
+        /**
+         * Submit new post
+         */
+        function submitPost() {
+            const form = document.getElementById('post-form');
+            const formData = new FormData(form);
+            const submitBtn = document.getElementById('submit-post-btn');
+            
+            // Validate content
+            const content = formData.get('content');
+            if (!content || content.trim().length === 0) {
+                showToast('Please write something to post', 'error');
+                return;
+            }
+            
+            // Disable button
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Posting...';
+            
+            fetch('../actions/create_post_action.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Post created successfully!', 'success');
+                    closePostModal();
+                    
+                    // Add new post to feed
+                    const container = document.getElementById('posts-container');
+                    const emptyMessage = container.querySelector('.text-center.py-8');
+                    if (emptyMessage) {
+                        emptyMessage.remove();
+                    }
+                    container.insertAdjacentHTML('afterbegin', data.post_html);
+                } else {
+                    showToast(data.message || 'Failed to create post', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Failed to create post', 'error');
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Post';
+            });
+        }
+        
+        /**
+         * Toggle like on a post
+         */
+        function toggleLike(postId, button) {
+            fetch('../actions/like_post_action.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ post_id: postId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const icon = button.querySelector('i');
+                    const countSpan = button.querySelector('.like-count');
+                    
+                    if (data.liked) {
+                        button.classList.remove('text-gray-500');
+                        button.classList.add('text-primary');
+                        icon.classList.remove('far');
+                        icon.classList.add('fas');
+                    } else {
+                        button.classList.remove('text-primary');
+                        button.classList.add('text-gray-500');
+                        icon.classList.remove('fas');
+                        icon.classList.add('far');
+                    }
+                    countSpan.textContent = data.likes_count + ' Likes';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Failed to like post', 'error');
+            });
+        }
+        
+        /**
+         * Toggle comments section (placeholder)
+         */
+        function toggleComments(postId) {
+            showToast('Comments feature coming soon!', 'success');
+        }
+        
+        /**
+         * Load more posts
+         */
+        function loadMorePosts() {
+            currentPostPage++;
+            const btn = document.getElementById('load-more-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Loading...';
+            
+            fetch(`../actions/get_posts_action.php?page=${currentPostPage}&limit=10`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.posts.length > 0) {
+                    const container = document.getElementById('posts-container');
+                    data.posts.forEach(post => {
+                        container.insertAdjacentHTML('beforeend', createPostHTML(post));
+                    });
+                    
+                    if (data.posts.length < 10) {
+                        btn.remove();
+                    } else {
+                        btn.disabled = false;
+                        btn.innerHTML = 'Load More Posts';
+                    }
+                } else {
+                    btn.remove();
+                    if (data.posts.length === 0) {
+                        showToast('No more posts to load', 'success');
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Failed to load posts', 'error');
+                btn.disabled = false;
+                btn.innerHTML = 'Load More Posts';
+            });
+        }
+        
+        /**
+         * Create post HTML from data
+         */
+        function createPostHTML(post) {
+            const colors = ['7A1E1E', '2563eb', '059669', '7c3aed', 'dc2626', 'ea580c'];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            
+            const avatar = post.profile_image 
+                ? `<img src="../uploads/profiles/${post.profile_image}" alt="${post.first_name}" class="w-12 h-12 rounded-full object-cover">`
+                : `<img src="https://ui-avatars.com/api/?name=${encodeURIComponent(post.first_name + ' ' + post.last_name)}&background=${color}&color=fff" alt="${post.first_name}" class="w-12 h-12 rounded-full">`;
+            
+            const typeLabel = post.post_type !== 'general' 
+                ? `<span class="px-2 py-1 text-xs rounded-full ${post.post_type === 'job' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}">${post.post_type.charAt(0).toUpperCase() + post.post_type.slice(1)}</span>` 
+                : '';
+            
+            const title = post.post_title ? `<h5 class="mt-2 font-semibold text-gray-900">${escapeHtml(post.post_title)}</h5>` : '';
+            const image = post.image_url ? `<div class="mt-3"><img src="../uploads/posts/${post.image_url}" alt="Post image" class="rounded-lg max-h-96 object-cover w-full"></div>` : '';
+            
+            return `
+                <div class="pb-6 border-b border-gray-200 post-item" data-post-id="${post.post_id}">
+                    <div class="flex items-start space-x-3 mb-4">
+                        ${avatar}
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900">${escapeHtml(post.first_name + ' ' + post.last_name)}</h4>
+                                    <p class="text-sm text-gray-500">${post.user_role ? post.user_role.charAt(0).toUpperCase() + post.user_role.slice(1) : 'Member'}</p>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    ${typeLabel}
+                                    <span class="text-sm text-gray-400">${post.time_ago}</span>
+                                </div>
+                            </div>
+                            ${title}
+                            <p class="mt-2 text-gray-700 leading-relaxed">${escapeHtml(post.post_content).replace(/\n/g, '<br>')}</p>
+                            ${image}
+                            <div class="flex items-center space-x-6 mt-4 text-sm">
+                                <button onclick="toggleLike(${post.post_id}, this)" 
+                                        class="flex items-center space-x-2 transition-colors like-btn ${post.user_liked ? 'text-primary' : 'text-gray-500 hover:text-primary'}">
+                                    <i class="${post.user_liked ? 'fas' : 'far'} fa-thumbs-up"></i>
+                                    <span class="like-count">${post.likes_count || 0} Likes</span>
+                                </button>
+                                <button onclick="toggleComments(${post.post_id})" 
+                                        class="flex items-center space-x-2 text-gray-500 hover:text-primary transition-colors">
+                                    <i class="far fa-comment"></i>
+                                    <span>${post.comments_count || 0} Comments</span>
+                                </button>
+                                <button class="flex items-center space-x-2 text-gray-500 hover:text-primary transition-colors">
+                                    <i class="far fa-share-square"></i>
+                                    <span>Share</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        /**
+         * Escape HTML to prevent XSS
+         */
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Close modal on outside click
+        document.getElementById('post-modal')?.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closePostModal();
+            }
+        });
+        
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closePostModal();
+            }
+        });
     </script>
+    
+    <!-- Post Creation Modal -->
+    <div id="post-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 id="post-type-label" class="text-lg font-bold text-gray-900">
+                        <i class="fas fa-edit mr-2 text-gray-600"></i>Share a Post
+                    </h3>
+                    <button onclick="closePostModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <form id="post-form" onsubmit="event.preventDefault(); submitPost();">
+                    <input type="hidden" name="post_type" id="post-type" value="general">
+                    
+                    <!-- Title (optional) -->
+                    <div class="mb-4">
+                        <input type="text" name="title" placeholder="Title (optional)" 
+                               class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-primary">
+                    </div>
+                    
+                    <!-- Content -->
+                    <div class="mb-4">
+                        <textarea name="content" id="post-content" rows="5" 
+                                  placeholder="What would you like to share?" 
+                                  class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:border-primary resize-none"
+                                  required></textarea>
+                    </div>
+                    
+                    <!-- Image Preview -->
+                    <div id="image-preview" class="mb-4 hidden relative">
+                        <img src="" alt="Preview" class="w-full rounded-lg max-h-48 object-cover">
+                        <button type="button" onclick="removeImagePreview()" 
+                                class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <label class="cursor-pointer text-gray-500 hover:text-primary transition-colors">
+                                <i class="fas fa-image text-lg"></i>
+                                <input type="file" name="image" id="post-image" accept="image/*" class="hidden" onchange="previewImage(this)">
+                            </label>
+                        </div>
+                        <button type="submit" id="submit-post-btn" 
+                                class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors font-medium">
+                            <i class="fas fa-paper-plane mr-2"></i>Post
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
